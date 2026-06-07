@@ -328,7 +328,7 @@ Siswa: ${res.data?.deleted_siswa || 0}`
             </CardContent>
           </Card>
 
-          <Card className="dashboard-card border-red-500/40">
+          {/* <Card className="dashboard-card border-red-500/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-600">
                 <Trash2 className="w-5 h-5" />
@@ -363,7 +363,7 @@ Siswa: ${res.data?.deleted_siswa || 0}`
                 {deleting ? "Menghapus..." : "Saya Sudah Backup, Hapus"}
               </Button>
             </CardContent>
-          </Card>
+          </Card> */}
         </>
       )}
     </div>
