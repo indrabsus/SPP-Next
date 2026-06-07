@@ -76,42 +76,104 @@ export default function BackupRestorePage() {
   }
 
   const restoreBackup = async () => {
-    if (!user || !isAdminKeuangan(user)) {
-      alert("Akses ditolak")
-      return
-    }
+  if (!user || !isAdminKeuangan(user)) {
+    alert("Akses ditolak")
+    return
+  }
 
-    if (!file) {
-      alert("Pilih file backup JSON terlebih dahulu")
-      return
-    }
+  if (!file) {
+    alert("Pilih file backup JSON terlebih dahulu")
+    return
+  }
 
-    if (!confirm("Yakin restore data SPP dari file ini? Data lama tidak dihapus, data yang ID-nya sama akan dilewati.")) {
-      return
-    }
+  setLoadingRestore(true)
 
-    setLoadingRestore(true)
+  try {
+    const text = await file.text()
+    const json = JSON.parse(text)
 
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
+    const masterSpp = Array.isArray(json.master_spp) ? json.master_spp : []
+    const logSpp = Array.isArray(json.log_spp) ? json.log_spp : []
 
-      const res = await apiFetch("/spp/restore", {
-        method: "POST",
-        body: formData,
-      })
+    const token = localStorage.getItem("token")
 
-      alert(
-        `Restore selesai.\n\nMaster masuk: ${res.data?.master_inserted || 0}\nMaster dilewati: ${res.data?.master_skipped || 0}\nLog masuk: ${res.data?.log_inserted || 0}\nLog dilewati: ${res.data?.log_skipped || 0}`
+    let totalMasterInserted = 0
+    let totalMasterSkipped = 0
+    let totalLogInserted = 0
+    let totalLogSkipped = 0
+
+    // restore master dulu
+    if (masterSpp.length > 0) {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/spp/restore-chunk`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            master_spp: masterSpp,
+            log_spp: [],
+          }),
+        }
       )
 
-      setFile(null)
-    } catch (error: any) {
-      alert(error.message || "Restore gagal")
-    } finally {
-      setLoadingRestore(false)
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Restore master gagal")
+      }
+
+      totalMasterInserted += data.data?.master_inserted || 0
+      totalMasterSkipped += data.data?.master_skipped || 0
     }
+
+    // restore log per 300 data
+    const chunkSize = 300
+
+    for (let i = 0; i < logSpp.length; i += chunkSize) {
+      const chunk = logSpp.slice(i, i + chunkSize)
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/spp/restore-chunk`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            master_spp: [],
+            log_spp: chunk,
+          }),
+        }
+      )
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message || `Restore log gagal pada data ke-${i + 1}`
+        )
+      }
+
+      totalLogInserted += data.data?.log_inserted || 0
+      totalLogSkipped += data.data?.log_skipped || 0
+    }
+
+    alert(
+      `Restore selesai.\n\nMaster masuk: ${totalMasterInserted}\nMaster dilewati: ${totalMasterSkipped}\nLog masuk: ${totalLogInserted}\nLog dilewati: ${totalLogSkipped}`
+    )
+
+    setFile(null)
+  } catch (error: any) {
+    console.error(error)
+    alert(error.message || "Restore gagal")
+  } finally {
+    setLoadingRestore(false)
   }
+}
 
   if (!user) return null
 

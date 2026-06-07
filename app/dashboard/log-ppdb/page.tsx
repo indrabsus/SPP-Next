@@ -1,15 +1,21 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { ArrowUpDown, Printer, Search, Trash2 } from "lucide-react"
+import { ArrowUpDown, Printer, Search, Trash2, ImageIcon  } from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
 import {
   canDeleteLogSpp,
   getUser,
-  isAdminKeuangan,
   UserLogin,
 } from "@/lib/auth"
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -122,6 +128,19 @@ export default function LogPpdbPage() {
 
   const [sortKey, setSortKey] = useState<SortKey>("waktu")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+
+  const [openBukti, setOpenBukti] = useState(false)
+const [selectedBukti, setSelectedBukti] = useState<string | null>(null)
+
+const openModalBukti = (bukti: string | null | undefined) => {
+  if (!bukti) return
+
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || ""
+  const url = bukti.startsWith("http") ? bukti : `${baseUrl}${bukti}`
+
+  setSelectedBukti(url)
+  setOpenBukti(true)
+}
 
   useEffect(() => {
     const currentUser = getUser()
@@ -580,6 +599,20 @@ export default function LogPpdbPage() {
 
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          
+                          {item.bukti ? (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => openModalBukti(item.bukti)}
+    >
+      <ImageIcon className="w-4 h-4 mr-2" />
+      Lihat
+    </Button>
+  ) : (
+    <span className="text-muted-foreground">-</span>
+  )}
+
                           <Button
                             size="sm"
                             variant="outline"
@@ -633,6 +666,32 @@ export default function LogPpdbPage() {
           </div>
         </CardContent>
       </Card>
+      <Dialog open={openBukti} onOpenChange={setOpenBukti}>
+  <DialogContent className="max-w-3xl">
+    <DialogHeader>
+      <DialogTitle>Bukti Pembayaran</DialogTitle>
+    </DialogHeader>
+
+    {selectedBukti ? (
+      <div className="max-h-[75vh] overflow-auto rounded-lg border bg-muted p-2">
+        {selectedBukti.toLowerCase().endsWith(".pdf") ? (
+          <iframe
+            src={selectedBukti}
+            className="w-full h-[70vh] rounded-md"
+          />
+        ) : (
+          <img
+            src={selectedBukti}
+            alt="Bukti pembayaran"
+            className="mx-auto max-h-[70vh] rounded-md object-contain"
+          />
+        )}
+      </div>
+    ) : (
+      <p className="text-muted-foreground">Bukti tidak tersedia.</p>
+    )}
+  </DialogContent>
+</Dialog>
     </div>
   )
 }

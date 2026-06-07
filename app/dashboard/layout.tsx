@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  Archive,
   CreditCard,
   DatabaseBackup,
   FileText,
@@ -45,25 +46,26 @@ const allMenus = [
   { title: "Pembayaran", href: "/dashboard/pembayaran", icon: CreditCard },
   { title: "Log SPP", href: "/dashboard/log-spp", icon: ScrollText },
   { title: "Log PPDB", href: "/dashboard/log-ppdb", icon: ScrollText },
+  {
+  title: "Pembayaran Lainnya",
+  href: "/dashboard/log-lainnya",
+  icon: Wallet,
+  adminOnly: true,
+},
 
   {
-    title: "Laporan",
+    title: "Laporan Siswa",
     href: "/dashboard/laporan",
     icon: FileText,
     adminOnly: true,
   },
   {
     title: "Laporan Keuangan",
-    href: "/dashboard/laporan-keuangan",
+    href: "/dashboard/keuangan",
     icon: FileText,
     adminOnly: true,
   },
-  {
-    title: "Rekap Tunggakan",
-    href: "/dashboard/tunggakan",
-    icon: Wallet,
-    adminOnly: true,
-  },
+  
   {
     title: "Master SPP",
     href: "/dashboard/master-spp",
@@ -71,11 +73,11 @@ const allMenus = [
     adminOnly: true,
   },
   {
-    title: "Backup & Restore",
-    href: "/dashboard/backup-restore",
-    icon: DatabaseBackup,
-    adminOnly: true,
-  },
+  title: "Arsip Angkatan",
+  href: "/dashboard/arsip-angkatan",
+  icon: Archive,
+  adminOnly: true,
+},
   {
     title: "Ubah Password",
     href: "/dashboard/ubah-password",
