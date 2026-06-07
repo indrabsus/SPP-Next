@@ -1,106 +1,597 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { CreditCard, Users, Wallet, FileText } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import {
+  BarChart3,
+  CreditCard,
+  FileText,
+  Loader2,
+  RefreshCcw,
+  ShieldCheck,
+  Wallet,
+} from "lucide-react"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
-import { getAllowedTingkat, getUser, UserLogin } from "@/lib/auth"
+import { apiFetch } from "@/lib/api"
+import {
+  getAllowedTingkat,
+  getUser,
+  isAdminKeuangan,
+  UserLogin,
+} from "@/lib/auth"
 
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
+
+type LogSpp = {
+  id_logspp: string
+  id_siswa: string
+  nominal: number
+  bulan: number
+  kelas: number
+  status: string
+  bayar: "csh" | "trf" | "sbs"
+  created_at: string
+  siswa_ppdb?: {
+    nama_lengkap: string
+    siswa_baru?: {
+      kelas_ppdb?: {
+        tingkat: number | string
+        nama_kelas: string
+      }
+    }
+  }
+}
+
+type Siswa = {
+  id_siswa: string
+  nama_lengkap: string
+  tahun: number
+}
+
+const bulanLabel: Record<number, string> = {
+  1: "Juli",
+  2: "Agustus",
+  3: "September",
+  4: "Oktober",
+  5: "November",
+  6: "Desember",
+  7: "Januari",
+  8: "Februari",
+  9: "Maret",
+  10: "April",
+  11: "Mei",
+  12: "Juni",
+  13: "Tunggakan Kelas 10",
+  14: "Tunggakan Kelas 11",
+  15: "Tunggakan Kelas 12",
+  16: "Daftar Ulang Kelas 11",
+  17: "Daftar Ulang Kelas 12",
+  18: "PKL",
+  19: "Ujian Akhir",
+}
+
+const bayarLabel: Record<string, string> = {
+  csh: "Cash",
+  trf: "Transfer",
+  sbs: "Dibebaskan",
+}
+
+const formatRupiah = (value: number) => {
+  return `Rp ${Number(value || 0).toLocaleString("id-ID")}`
+}
+
+const formatDateOnly = (date: Date) => {
+  return date.toISOString().slice(0, 10)
+}
+
+const isSameDate = (value: string, target: Date) => {
+  if (!value) return false
+  return formatDateOnly(new Date(value)) === formatDateOnly(target)
+}
+
+const isSameMonth = (value: string, target: Date) => {
+  if (!value) return false
+
+  const date = new Date(value)
+
+  return (
+    date.getMonth() === target.getMonth() &&
+    date.getFullYear() === target.getFullYear()
+  )
+}
+
+const isUangMasuk = (item: LogSpp) => {
+  return item.bayar === "csh" || item.bayar === "trf"
+}
 
 export default function DashboardPage() {
   const router = useRouter()
+
   const [user, setUser] = useState<UserLogin | null>(null)
+  const [logs, setLogs] = useState<LogSpp[]>([])
+  const [siswa, setSiswa] = useState<Siswa[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setUser(getUser())
-  }, [])
+    const currentUser = getUser()
+
+    if (!currentUser) {
+      router.push("/login")
+      return
+    }
+
+    setUser(currentUser)
+  }, [router])
+
+  const allowedTingkat = user ? getAllowedTingkat(user) : []
+
+  const getDashboardData = async () => {
+    if (!user) return
+
+    setLoading(true)
+
+    try {
+      const tingkatParam =
+        isAdminKeuangan(user) ? "" : `&tingkat=${allowedTingkat[0]}`
+
+      const logRes = await apiFetch(
+        `/spp/log?page=1&limit=500${tingkatParam}`
+      )
+
+      setLogs(logRes.data || [])
+
+      const siswaResult: Siswa[] = []
+
+      for (const tingkat of allowedTingkat) {
+        const res = await apiFetch(`/spp/siswa?tingkat=${tingkat}`)
+        siswaResult.push(...(res.data || []))
+      }
+
+      setSiswa(siswaResult)
+    } catch (error) {
+      console.error("Gagal mengambil dashboard:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+      getDashboardData()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
+  const stats = useMemo(() => {
+    const today = new Date()
+
+    const pembayaranHariIni = logs
+      .filter((item) => isSameDate(item.created_at, today))
+      .filter(isUangMasuk)
+      .reduce((total, item) => total + Number(item.nominal || 0), 0)
+
+    const pembayaranBulanIni = logs
+      .filter((item) => isSameMonth(item.created_at, today))
+      .filter(isUangMasuk)
+      .reduce((total, item) => total + Number(item.nominal || 0), 0)
+
+    const dibebaskanBulanIni = logs
+      .filter((item) => isSameMonth(item.created_at, today))
+      .filter((item) => item.bayar === "sbs")
+      .reduce((total, item) => total + Number(item.nominal || 0), 0)
+
+    const totalSiswa = siswa.length
+
+    return {
+      pembayaranHariIni,
+      pembayaranBulanIni,
+      dibebaskanBulanIni,
+      totalSiswa,
+    }
+  }, [logs, siswa])
+
+  const chartHarian = useMemo(() => {
+    const result: { tanggal: string; total: number }[] = []
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+
+      const tanggalKey = formatDateOnly(date)
+
+      const total = logs
+        .filter((item) => formatDateOnly(new Date(item.created_at)) === tanggalKey)
+        .filter(isUangMasuk)
+        .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
+
+      result.push({
+        tanggal: date.toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+        }),
+        total,
+      })
+    }
+
+    return result
+  }, [logs])
+
+  const chartMetode = useMemo(() => {
+    const cash = logs
+      .filter((item) => item.bayar === "csh")
+      .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
+
+    const transfer = logs
+      .filter((item) => item.bayar === "trf")
+      .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
+
+    const dibebaskan = logs
+      .filter((item) => item.bayar === "sbs")
+      .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
+
+    return [
+      { name: "Cash", value: cash },
+      { name: "Transfer", value: transfer },
+      { name: "Dibebaskan", value: dibebaskan },
+    ].filter((item) => item.value > 0)
+  }, [logs])
+
+  const chartKelas = useMemo(() => {
+    const map = new Map<string, number>()
+
+    logs.filter(isUangMasuk).forEach((item) => {
+      const tingkat =
+        item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat || item.kelas || "-"
+      const namaKelas =
+        item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas || "-"
+
+      const kelas = `${tingkat} ${namaKelas}`
+      const current = map.get(kelas) || 0
+
+      map.set(kelas, current + Number(item.nominal || 0))
+    })
+
+    return Array.from(map.entries())
+      .map(([kelas, total]) => ({
+        kelas,
+        total,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+  }, [logs])
+
+  const transaksiTerakhir = useMemo(() => {
+    return [...logs]
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime()
+      )
+      .slice(0, 8)
+  }, [logs])
 
   if (!user) return null
 
-  const allowedTingkat = getAllowedTingkat(user.role)
-
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Kelola pembayaran SPP sesuai hak akses tingkat.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">
-              Hak Akses
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-3">
-            <Users className="w-7 h-7" />
-            <p className="text-2xl font-bold">
-              {allowedTingkat.join(", ")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">
-              Pembayaran Hari Ini
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-3">
-            <CreditCard className="w-7 h-7" />
-            <p className="text-2xl font-bold">Rp 0</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">
-              Tunggakan
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-3">
-            <Wallet className="w-7 h-7" />
-            <p className="text-2xl font-bold">Rp 0</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">
-              Laporan
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-3">
-            <FileText className="w-7 h-7" />
-            <p className="text-2xl font-bold">Aktif</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Pembayaran SPP</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard Keuangan</h1>
           <p className="text-muted-foreground">
-            Klik tombol di bawah untuk mulai mencari siswa dan melakukan pembayaran.
+            Hak akses tingkat:{" "}
+            <span className="font-semibold">
+              {allowedTingkat.length > 0
+                ? allowedTingkat.join(", ")
+                : "Tidak ada akses"}
+            </span>
           </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={getDashboardData}>
+            <RefreshCcw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
 
           <Button onClick={() => router.push("/dashboard/pembayaran")}>
-            Buka Pembayaran SPP
+            Buka Pembayaran
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {loading ? (
+        <Card className="dashboard-card">
+          <CardContent className="py-10 flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Mengambil data dashboard...
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="dashboard-card">
+              <CardHeader>
+                <CardTitle className="text-sm text-muted-foreground">
+                  Dibebaskan Bulan Ini
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center gap-3">
+                <div className="rounded-xl bg-amber-500/10 p-3 text-amber-500 dark:text-amber-400">
+                  <ShieldCheck className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {formatRupiah(stats.dibebaskanBulanIni)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Tidak masuk uang kas
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-card">
+              <CardHeader>
+                <CardTitle className="text-sm text-muted-foreground">
+                  Hari Ini
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center gap-3">
+                <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-500 dark:text-emerald-400">
+                  <CreditCard className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {formatRupiah(stats.pembayaranHariIni)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Cash + transfer
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-card">
+              <CardHeader>
+                <CardTitle className="text-sm text-muted-foreground">
+                  Bulan Ini
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center gap-3">
+                <div className="rounded-xl bg-cyan-500/10 p-3 text-cyan-500 dark:text-cyan-400">
+                  <Wallet className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {formatRupiah(stats.pembayaranBulanIni)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Cash + transfer
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-card">
+              <CardHeader>
+                <CardTitle className="text-sm text-muted-foreground">
+                  Data Aktif
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center gap-3">
+                <div className="rounded-xl bg-violet-500/10 p-3 text-violet-500 dark:text-violet-400">
+                  <FileText className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.totalSiswa}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Siswa terambil
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <Card className="dashboard-card xl:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Uang Masuk 7 Hari Terakhir
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartHarian}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="currentColor"
+                      opacity={0.15}
+                    />
+                    <XAxis
+                      dataKey="tanggal"
+                      tick={{ fill: "currentColor", fontSize: 12 }}
+                    />
+                    <YAxis
+                      tick={{ fill: "currentColor", fontSize: 12 }}
+                      tickFormatter={(value) =>
+                        `${Number(value) / 1000000}jt`
+                      }
+                    />
+                    <Tooltip
+                      formatter={(value: any) => formatRupiah(Number(value))}
+                    />
+                    <Bar
+                      dataKey="total"
+                      radius={[8, 8, 0, 0]}
+                      fill="#3b82f6"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-card">
+              <CardHeader>
+                <CardTitle>Komposisi Metode</CardTitle>
+              </CardHeader>
+
+              <CardContent className="h-[320px]">
+                {chartMetode.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                    Belum ada data metode pembayaran.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartMetode}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={95}
+                        label={(item) => item.name}
+                      >
+                        {chartMetode.map((_, index) => (
+                          <Cell
+                            key={index}
+                            fill={
+                              ["#22c55e", "#3b82f6", "#f59e0b"][
+                                index % 3
+                              ]
+                            }
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: any) => formatRupiah(Number(value))}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <Card className="dashboard-card">
+              <CardHeader>
+                <CardTitle>Top Kelas Berdasarkan Uang Masuk</CardTitle>
+              </CardHeader>
+
+              <CardContent className="h-[320px]">
+                {chartKelas.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                    Belum ada data kelas.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartKelas} layout="vertical">
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="currentColor"
+                        opacity={0.15}
+                      />
+                      <XAxis
+                        type="number"
+                        tick={{ fill: "currentColor", fontSize: 12 }}
+                        tickFormatter={(value) =>
+                          `${Number(value) / 1000000}jt`
+                        }
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="kelas"
+                        width={90}
+                        tick={{ fill: "currentColor", fontSize: 12 }}
+                      />
+                      <Tooltip
+                        formatter={(value: any) => formatRupiah(Number(value))}
+                      />
+                      <Bar
+                        dataKey="total"
+                        radius={[0, 8, 8, 0]}
+                        fill="#14b8a6"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-card">
+              <CardHeader>
+                <CardTitle>Transaksi Terbaru</CardTitle>
+              </CardHeader>
+
+              <CardContent>
+                {transaksiTerakhir.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Belum ada transaksi.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {transaksiTerakhir.map((item) => {
+                      const nama =
+                        item.siswa_ppdb?.nama_lengkap || "Tanpa Nama"
+                      const kelas =
+                        item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas ||
+                        "-"
+                      const tingkat =
+                        item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat ||
+                        item.kelas
+
+                      return (
+                        <div
+                          key={item.id_logspp}
+                          className="dashboard-soft-card flex items-center justify-between rounded-xl p-3"
+                        >
+                          <div>
+                            <p className="font-medium">{nama}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {tingkat} {kelas} •{" "}
+                              {bulanLabel[Number(item.bulan)] || "-"} •{" "}
+                              {bayarLabel[item.bayar] || item.bayar}
+                            </p>
+                          </div>
+
+                          <p
+                            className={`font-semibold ${
+                              item.bayar === "sbs"
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-emerald-600 dark:text-emerald-400"
+                            }`}
+                          >
+                            {formatRupiah(item.nominal)}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   )
 }

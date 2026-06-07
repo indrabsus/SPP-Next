@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
-import { getRoleByUsername, saveAuth } from "@/lib/auth"
+import { isAllowedKeuanganUser, saveAuth } from "@/lib/auth"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,7 +13,6 @@ import { Label } from "@/components/ui/label"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -23,13 +23,16 @@ export default function LoginPage() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!username || !password) {
+      alert("Username dan password wajib diisi")
+      return
+    }
+
     setLoading(true)
-    setError("")
 
     try {
       const res = await apiFetch("/api/auth/login", {
@@ -40,62 +43,64 @@ export default function LoginPage() {
         }),
       })
 
-      saveAuth(res.token, {
-        id: res.data.userId,
-        nama: res.data.username,
-        username: res.data.username,
-        role: getRoleByUsername(res.data.username),
-      })
+      const loginUser = {
+        ...res.data,
+        role: res.data.username,
+        nama_role: res.data.username,
+      }
+
+      if (!isAllowedKeuanganUser(loginUser)) {
+        alert("Akun ini tidak memiliki akses ke aplikasi keuangan.")
+        return
+      }
+
+      saveAuth(res.token, loginUser)
 
       router.push("/dashboard")
-    } catch (err: any) {
-      setError(err.message || "Login gagal")
+    } catch (error: any) {
+      alert(error.message || "Login gagal")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-muted px-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Login Keuangan SPP</CardTitle>
-          <CardDescription>
-            Masuk untuk mengelola pembayaran siswa
-          </CardDescription>
+    <main className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-950 px-4">
+      <Card className="w-full max-w-md dashboard-card">
+        <CardHeader>
+          <CardTitle className="text-2xl">Login Keuangan</CardTitle>
         </CardHeader>
 
         <CardContent>
-          {error && (
-            <div className="mb-4 rounded-md bg-red-100 px-4 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
+            <div>
               <Label>Username</Label>
               <Input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="adminkeuangan"
-                required
+                placeholder="Masukkan username"
               />
             </div>
 
-            <div className="space-y-2">
+            <div>
               <Label>Password</Label>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Masukkan password"
-                required
               />
             </div>
 
             <Button className="w-full" disabled={loading}>
-              {loading ? "Memproses..." : "Login"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Memproses...
+                </>
+              ) : (
+                "Login"
+              )}
             </Button>
           </form>
         </CardContent>

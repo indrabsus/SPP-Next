@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react"
 import { ArrowUpDown, ReceiptText, Search } from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
-import { getAllowedTingkat, getUser, UserLogin } from "@/lib/auth"
+import {
+  getAllowedTingkat,
+  getUser,
+  isAdminKeuangan,
+  UserLogin,
+} from "@/lib/auth"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,10 +53,19 @@ type LogSpp = {
   created_at: string
 }
 
+type LogPpdb = {
+  id_log: string
+  nominal: string
+  jenis: "d" | "p" | "l"
+  bayar: "csh" | "trf" | null
+  created_at: string
+}
+
 type Siswa = {
   id_siswa: string
   nama_lengkap: string
   tahun: number
+  log_ppdb?: LogPpdb[]
   log_spp?: LogSpp[]
   siswa_baru?: {
     kelas_ppdb?: {
@@ -80,6 +94,32 @@ type MasterSpp = {
   ujian_akhir: number
 }
 
+type MasterPpdb = {
+  id_ppdb: string
+  daftar: number
+  ppdb: number
+  tahun: number
+}
+
+type ExtraTagihanKey =
+  | "du11"
+  | "du12"
+  | "spp10"
+  | "spp11"
+  | "pkl"
+  | "ujian"
+
+type PaymentMode = "spp" | "ppdb"
+
+const extraTagihanOptions = [
+  { key: "du11", label: "Daftar Ulang Kelas 11" },
+  { key: "du12", label: "Daftar Ulang Kelas 12" },
+  { key: "spp10", label: "Tunggakan SPP Kelas 10" },
+  { key: "spp11", label: "Tunggakan SPP Kelas 11" },
+  { key: "pkl", label: "Tunggakan PKL" },
+  { key: "ujian", label: "Tunggakan Ujian Akhir" },
+] as const
+
 const bulanSpp = [
   { value: "1", label: "Juli" },
   { value: "2", label: "Agustus" },
@@ -103,7 +143,6 @@ const bulanSpp = [
 ]
 
 const bulanTagihan = bulanSpp.slice(0, 12)
-
 const ITEMS_PER_PAGE = 50
 
 const getBulanSekarangSpp = () => {
@@ -131,6 +170,43 @@ const formatRupiah = (value: number) => {
   return `Rp ${Number(value || 0).toLocaleString("id-ID")}`
 }
 
+const formatTanggal = (value: string) => {
+  if (!value) return "-"
+
+  return new Date(value).toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+const getLabelBulan = (bulanValue: number) => {
+  const found = bulanSpp.find((item) => item.value === String(bulanValue))
+  return found?.label || "-"
+}
+
+const getLabelBayar = (value: string) => {
+  if (value === "csh") return "Cash"
+  if (value === "trf") return "Transfer"
+  if (value === "sbs") return "Dibebaskan"
+  return value
+}
+
+const toNumber = (value: any) => {
+  if (!value) return 0
+
+  return (
+    Number(
+      String(value)
+        .replace(/\./g, "")
+        .replace(/,/g, "")
+        .replace(/[^\d]/g, "")
+    ) || 0
+  )
+}
+
 export default function PembayaranPage() {
   const [user, setUser] = useState<UserLogin | null>(null)
 
@@ -138,39 +214,99 @@ export default function PembayaranPage() {
   const [idKelas, setIdKelas] = useState("semua")
   const [keyword, setKeyword] = useState("")
   const [bulanFilter, setBulanFilter] = useState(getBulanSekarangSpp())
+  const [showPpdb, setShowPpdb] = useState(false)
 
   const [kelas, setKelas] = useState<Kelas[]>([])
   const [dataSiswa, setDataSiswa] = useState<Siswa[]>([])
   const [masterSpp, setMasterSpp] = useState<Record<number, MasterSpp>>({})
+  const [masterPpdb, setMasterPpdb] = useState<Record<number, MasterPpdb>>({})
 
   const [loading, setLoading] = useState(false)
   const [loadingKelas, setLoadingKelas] = useState(false)
 
   const [sortKey, setSortKey] = useState<
-    "nama" | "tingkat" | "kelas" | "tahun" | "tunggakan"
+    "nama" | "kelas" | "tunggakan" | "ppdb" | ExtraTagihanKey
   >("nama")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [page, setPage] = useState(1)
 
+  const [extraTagihan, setExtraTagihan] = useState<
+    Record<ExtraTagihanKey, boolean>
+  >({
+    du11: false,
+    du12: false,
+    spp10: false,
+    spp11: false,
+    pkl: false,
+    ujian: false,
+  })
+
   const [open, setOpen] = useState(false)
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null)
 
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("spp")
   const [bulan, setBulan] = useState("")
   const [nominal, setNominal] = useState("0")
-  const [bayar, setBayar] = useState("csh")
+  const [bayar, setBayar] = useState<"csh" | "trf" | "sbs">("csh")
+  const [bukti, setBukti] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const [logLast, setLogLast] = useState<LogSpp[]>([])
+  const [loadingLogLast, setLoadingLogLast] = useState(false)
 
   useEffect(() => {
     const currentUser = getUser()
     if (!currentUser) return
 
-    const allowed = getAllowedTingkat(currentUser.role)
+    const allowed = getAllowedTingkat(currentUser)
 
     setUser(currentUser)
-    setTingkat(allowed[0])
+    setTingkat(allowed[0] || "")
   }, [])
 
-  const allowedTingkat = user ? getAllowedTingkat(user.role) : []
+  const allowedTingkat = user ? getAllowedTingkat(user) : []
+
+  const resetExtraTagihanByTingkat = (tingkatValue: string) => {
+    if (tingkatValue === "10") {
+      setExtraTagihan({
+        du11: false,
+        du12: false,
+        spp10: false,
+        spp11: false,
+        pkl: false,
+        ujian: false,
+      })
+    }
+
+    if (tingkatValue === "11") {
+      setExtraTagihan({
+        du11: true,
+        du12: false,
+        spp10: false,
+        spp11: false,
+        pkl: false,
+        ujian: false,
+      })
+    }
+
+    if (tingkatValue === "12") {
+      setExtraTagihan({
+        du11: false,
+        du12: true,
+        spp10: false,
+        spp11: false,
+        pkl: true,
+        ujian: true,
+      })
+    }
+  }
+
+  const isExtraEnabled = (key: ExtraTagihanKey) => {
+    if (tingkat === "10") return key === "du11"
+    if (tingkat === "11") return key === "du11" || key === "spp10" || key === "pkl"
+    if (tingkat === "12") return true
+    return false
+  }
 
   const getKelas = async (tingkatValue: string) => {
     if (!tingkatValue) return
@@ -195,6 +331,25 @@ export default function PembayaranPage() {
       const res = await apiFetch(`/spp/master/${tahun}`)
 
       setMasterSpp((prev) => ({
+        ...prev,
+        [tahun]: res.data,
+      }))
+
+      return res.data
+    } catch (error) {
+      console.error(error)
+      return null
+    }
+  }
+
+  const getMasterPpdb = async (tahun: number) => {
+    if (!tahun) return null
+    if (masterPpdb[tahun]) return masterPpdb[tahun]
+
+    try {
+      const res = await apiFetch(`/ppdb/masterppdb?tahun=${tahun}`)
+
+      setMasterPpdb((prev) => ({
         ...prev,
         [tahun]: res.data,
       }))
@@ -233,9 +388,8 @@ export default function PembayaranPage() {
         ...new Set(result.map((item) => item.tahun).filter(Boolean)),
       ]
 
-      await Promise.all(
-        tahunUnik.map((tahun) => getMasterSpp(Number(tahun)))
-      )
+      await Promise.all(tahunUnik.map((tahun) => getMasterSpp(Number(tahun))))
+      await Promise.all(tahunUnik.map((tahun) => getMasterPpdb(Number(tahun))))
     } catch (error: any) {
       alert(error.message || "Gagal mengambil data siswa")
     } finally {
@@ -243,9 +397,24 @@ export default function PembayaranPage() {
     }
   }
 
+  const getLogLast = async (id_siswa: string) => {
+    setLoadingLogLast(true)
+
+    try {
+      const res = await apiFetch(`/spp/loglast/${id_siswa}`)
+      setLogLast(res.data || [])
+    } catch (error) {
+      console.error(error)
+      setLogLast([])
+    } finally {
+      setLoadingLogLast(false)
+    }
+  }
+
   useEffect(() => {
     if (tingkat) {
       setIdKelas("semua")
+      resetExtraTagihanByTingkat(tingkat)
       getKelas(tingkat)
     }
   }, [tingkat])
@@ -278,42 +447,127 @@ export default function PembayaranPage() {
     return 0
   }
 
- const getTotalBayarSpp = (siswa: Siswa) => {
-  const tingkatSiswa = Number(getTingkatSiswa(siswa))
+  const getTargetPpdb = (siswa: Siswa) => {
+    const master = masterPpdb[siswa.tahun]
+    return Number(master?.ppdb || 0)
+  }
 
-  return (
-    siswa.log_spp
-      ?.filter((log) => {
-        return (
-          log.status === "spp" &&
-          Number(log.kelas) === tingkatSiswa
-        )
-      })
-      .reduce(
-        (total, log) =>
-          total + Number(log.nominal || 0),
+  const getTotalBayarPpdb = (siswa: Siswa) => {
+    return (
+      siswa.log_ppdb
+        ?.filter((log) => log.jenis === "p")
+        .reduce((total, log) => total + toNumber(log.nominal), 0) || 0
+    )
+  }
+
+  const getTunggakanPpdb = (siswa: Siswa) => {
+    const target = getTargetPpdb(siswa)
+    const totalBayar = getTotalBayarPpdb(siswa)
+    return Math.max(target - totalBayar, 0)
+  }
+
+  const getTotalBayarByStatus = (
+    siswa: Siswa,
+    status: string,
+    kelasTagihan?: number
+  ) => {
+    return (
+      siswa.log_spp
+        ?.filter((log) => {
+          if (log.status !== status) return false
+          if (kelasTagihan) return Number(log.kelas) === kelasTagihan
+          return true
+        })
+        .reduce((total, log) => total + Number(log.nominal || 0), 0) || 0
+    )
+  }
+
+  const getTotalBayarSpp = (siswa: Siswa) => {
+    const tingkatSiswa = Number(getTingkatSiswa(siswa))
+    return getTotalBayarByStatus(siswa, "spp", tingkatSiswa)
+  }
+
+  const getTunggakanSpp = (siswa: Siswa) => {
+    const nominalPerBulan = getNominalSpp(siswa)
+    const totalTagihan = nominalPerBulan * Number(bulanFilter)
+    const totalBayar = getTotalBayarSpp(siswa)
+
+    return Math.max(totalTagihan - totalBayar, 0)
+  }
+
+  const getNominalExtraTagihan = (siswa: Siswa, key: ExtraTagihanKey) => {
+    const master = masterSpp[siswa.tahun]
+    if (!master) return 0
+
+    if (key === "du11") {
+      return Math.max(
+        Number(master.daftar_ulang_11 || 0) -
+          getTotalBayarByStatus(siswa, "du11"),
         0
-      ) || 0
-  )
-}
+      )
+    }
 
-const getTunggakanSpp = (siswa: Siswa) => {
-  const nominalPerBulan = getNominalSpp(siswa)
+    if (key === "du12") {
+      return Math.max(
+        Number(master.daftar_ulang_12 || 0) -
+          getTotalBayarByStatus(siswa, "du12"),
+        0
+      )
+    }
 
-  const totalTagihan =
-    nominalPerBulan * Number(bulanFilter)
+    if (key === "spp10") {
+      const totalTagihan = Number(master.spp10 || 0) * 12
+      const totalBayar = getTotalBayarByStatus(siswa, "spp", 10)
+      return Math.max(totalTagihan - totalBayar, 0)
+    }
 
-  const totalBayar =
-    getTotalBayarSpp(siswa)
+    if (key === "spp11") {
+      const totalTagihan = Number(master.spp11 || 0) * 12
+      const totalBayar = getTotalBayarByStatus(siswa, "spp", 11)
+      return Math.max(totalTagihan - totalBayar, 0)
+    }
 
-  return Math.max(
-    totalTagihan - totalBayar,
-    0
-  )
-}
+    if (key === "pkl") {
+      return Math.max(
+        Number(master.pkl || 0) - getTotalBayarByStatus(siswa, "pkl"),
+        0
+      )
+    }
+
+    if (key === "ujian") {
+      return Math.max(
+        Number(master.ujian_akhir || 0) -
+          getTotalBayarByStatus(siswa, "ujian"),
+        0
+      )
+    }
+
+    return 0
+  }
+
+  const getStatusByBulan = (bulanValue: string) => {
+    if (bulanValue === "16") return "du11"
+    if (bulanValue === "17") return "du12"
+    if (bulanValue === "18") return "pkl"
+    if (bulanValue === "19") return "ujian"
+
+    return "spp"
+  }
+
+  const getNominalDefaultByBulan = (siswa: Siswa, bulanValue: string) => {
+    const master = masterSpp[siswa.tahun]
+    if (!master) return 0
+
+    if (bulanValue === "16") return Number(master.daftar_ulang_11 || 0)
+    if (bulanValue === "17") return Number(master.daftar_ulang_12 || 0)
+    if (bulanValue === "18") return Number(master.pkl || 0)
+    if (bulanValue === "19") return Number(master.ujian_akhir || 0)
+
+    return getNominalSpp(siswa)
+  }
 
   const handleSort = (
-    key: "nama" | "tingkat" | "kelas" | "tahun" | "tunggakan"
+    key: "nama" | "kelas" | "tunggakan" | "ppdb" | ExtraTagihanKey
   ) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
@@ -329,12 +583,11 @@ const getTunggakanSpp = (siswa: Siswa) => {
     result.sort((a, b) => {
       const getValue = (item: Siswa) => {
         if (sortKey === "nama") return item.nama_lengkap || ""
-        if (sortKey === "tingkat") return getTingkatSiswa(item)
-        if (sortKey === "kelas") return getNamaKelas(item)
-        if (sortKey === "tahun") return item.tahun || 0
+        if (sortKey === "kelas") return `${getTingkatSiswa(item)} ${getNamaKelas(item)}`
         if (sortKey === "tunggakan") return getTunggakanSpp(item)
+        if (sortKey === "ppdb") return getTunggakanPpdb(item)
 
-        return ""
+        return getNominalExtraTagihan(item, sortKey as ExtraTagihanKey)
       }
 
       const valueA = getValue(a)
@@ -355,7 +608,16 @@ const getTunggakanSpp = (siswa: Siswa) => {
 
     return result
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataSiswa, sortKey, sortDirection, masterSpp, bulanFilter])
+  }, [
+    dataSiswa,
+    sortKey,
+    sortDirection,
+    masterSpp,
+    masterPpdb,
+    bulanFilter,
+    extraTagihan,
+    showPpdb,
+  ])
 
   const totalPage = Math.ceil(sortedSiswa.length / ITEMS_PER_PAGE) || 1
 
@@ -364,23 +626,37 @@ const getTunggakanSpp = (siswa: Siswa) => {
     page * ITEMS_PER_PAGE
   )
 
-  const bukaModalBayar = (siswa: Siswa) => {
-    const nominalDefault = getNominalSpp(siswa)
-
+  const bukaModalBayar = (siswa: Siswa, mode: PaymentMode = "spp") => {
     setSelectedSiswa(siswa)
-    setBulan(bulanFilter)
-    setNominal(String(nominalDefault))
-    setBayar("csh")
+    setPaymentMode(mode)
+    setBukti(null)
+    setLogLast([])
     setOpen(true)
+
+    if (mode === "ppdb") {
+      setBulan("ppdb")
+      setNominal(String(getTunggakanPpdb(siswa)))
+      setBayar("csh")
+    } else {
+      setBulan(bulanFilter)
+      setNominal(String(getNominalSpp(siswa)))
+      setBayar("csh")
+    }
+
+    getLogLast(siswa.id_siswa)
+  }
+
+  const handleChangeJenisPembayaran = (value: string) => {
+    setBulan(value)
+
+    if (!selectedSiswa) return
+
+    const nominalDefault = getNominalDefaultByBulan(selectedSiswa, value)
+    setNominal(String(nominalDefault))
   }
 
   const simpanPembayaran = async () => {
     if (!selectedSiswa) return
-
-    if (!bulan) {
-      alert("Pilih jenis pembayaran dulu")
-      return
-    }
 
     if (!nominal || Number(nominal) <= 0) {
       alert("Nominal tidak valid")
@@ -390,20 +666,42 @@ const getTunggakanSpp = (siswa: Siswa) => {
     setSaving(true)
 
     try {
-      await apiFetch("/spp/bayar", {
-        method: "POST",
-        body: JSON.stringify({
-          id_siswa: selectedSiswa.id_siswa,
-          nominal: Number(nominal),
-          bulan: Number(bulan),
-          kelas: Number(getTingkatSiswa(selectedSiswa)),
-          status: "spp",
-          bayar,
-        }),
-      })
+      const formData = new FormData()
+
+      formData.append("id_siswa", selectedSiswa.id_siswa)
+      formData.append("nominal", String(Number(nominal)))
+      formData.append("bayar", bayar)
+
+      if (bukti) {
+        formData.append("bukti", bukti)
+      }
+
+      if (paymentMode === "ppdb") {
+        formData.append("petugas", user?.username || "admin")
+
+        await apiFetch("/ppdb/bayarppdb", {
+          method: "POST",
+          body: formData,
+        })
+      } else {
+        if (!bulan) {
+          alert("Pilih jenis pembayaran dulu")
+          return
+        }
+
+        formData.append("bulan", String(Number(bulan)))
+        formData.append("kelas", String(Number(getTingkatSiswa(selectedSiswa))))
+        formData.append("status", getStatusByBulan(bulan))
+
+        await apiFetch("/spp/bayar", {
+          method: "POST",
+          body: formData,
+        })
+      }
 
       alert("Pembayaran berhasil disimpan")
       setOpen(false)
+      setBukti(null)
       getSiswa()
     } catch (error: any) {
       alert(error.message || "Gagal menyimpan pembayaran")
@@ -412,6 +710,9 @@ const getTunggakanSpp = (siswa: Siswa) => {
     }
   }
 
+  const jumlahKolomTambahan =
+    Object.values(extraTagihan).filter(Boolean).length + (showPpdb ? 1 : 0)
+
   if (!user) return null
 
   return (
@@ -419,7 +720,7 @@ const getTunggakanSpp = (siswa: Siswa) => {
       <div>
         <h1 className="text-2xl font-bold">Pembayaran SPP</h1>
         <p className="text-muted-foreground">
-          Cari siswa, lihat tunggakan sesuai bulan tagihan, lalu input pembayaran.
+          Cari siswa, lihat tunggakan, lalu input pembayaran.
         </p>
       </div>
 
@@ -429,7 +730,7 @@ const getTunggakanSpp = (siswa: Siswa) => {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {user.role === "admin" && (
+          {isAdminKeuangan(user) && (
             <div className="max-w-xs">
               <Label>Tingkat</Label>
               <Select value={tingkat} onValueChange={setTingkat}>
@@ -491,7 +792,7 @@ const getTunggakanSpp = (siswa: Siswa) => {
             </div>
 
             <div>
-              <Label>Bulan Tagihan</Label>
+              <Label>Bulan Tagihan SPP</Label>
               <Select value={bulanFilter} onValueChange={setBulanFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih bulan tagihan" />
@@ -504,6 +805,47 @@ const getTunggakanSpp = (siswa: Siswa) => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <Label>Kolom Tunggakan</Label>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={showPpdb}
+                  onChange={(e) => setShowPpdb(e.target.checked)}
+                />
+                Tunggakan PPDB
+              </label>
+
+              {extraTagihanOptions.map((item) => {
+                const enabled = isExtraEnabled(item.key)
+
+                return (
+                  <label
+                    key={item.key}
+                    className={`flex items-center gap-2 text-sm ${
+                      enabled ? "" : "opacity-40"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={extraTagihan[item.key]}
+                      disabled={!enabled}
+                      onChange={(e) =>
+                        setExtraTagihan((prev) => ({
+                          ...prev,
+                          [item.key]: e.target.checked,
+                        }))
+                      }
+                    />
+                    {item.label}
+                  </label>
+                )
+              })}
             </div>
           </div>
         </CardContent>
@@ -535,30 +877,10 @@ const getTunggakanSpp = (siswa: Siswa) => {
 
                 <TableHead>
                   <button
-                    onClick={() => handleSort("tingkat")}
-                    className="flex items-center gap-2"
-                  >
-                    Tingkat
-                    <ArrowUpDown className="w-4 h-4" />
-                  </button>
-                </TableHead>
-
-                <TableHead>
-                  <button
                     onClick={() => handleSort("kelas")}
                     className="flex items-center gap-2"
                   >
                     Kelas
-                    <ArrowUpDown className="w-4 h-4" />
-                  </button>
-                </TableHead>
-
-                <TableHead>
-                  <button
-                    onClick={() => handleSort("tahun")}
-                    className="flex items-center gap-2"
-                  >
-                    Tahun
                     <ArrowUpDown className="w-4 h-4" />
                   </button>
                 </TableHead>
@@ -570,10 +892,38 @@ const getTunggakanSpp = (siswa: Siswa) => {
                     onClick={() => handleSort("tunggakan")}
                     className="flex items-center gap-2"
                   >
-                    Tunggakan
+                    Tunggakan SPP
                     <ArrowUpDown className="w-4 h-4" />
                   </button>
                 </TableHead>
+
+                {showPpdb && (
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort("ppdb")}
+                      className="flex items-center gap-2"
+                    >
+                      Tunggakan PPDB
+                      <ArrowUpDown className="w-4 h-4" />
+                    </button>
+                  </TableHead>
+                )}
+
+                {extraTagihanOptions.map((item) => {
+                  if (!extraTagihan[item.key]) return null
+
+                  return (
+                    <TableHead key={item.key}>
+                      <button
+                        onClick={() => handleSort(item.key)}
+                        className="flex items-center gap-2"
+                      >
+                        {item.label}
+                        <ArrowUpDown className="w-4 h-4" />
+                      </button>
+                    </TableHead>
+                  )
+                })}
 
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
@@ -582,54 +932,87 @@ const getTunggakanSpp = (siswa: Siswa) => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-6">
+                  <TableCell
+                    colSpan={6 + jumlahKolomTambahan}
+                    className="text-center py-6"
+                  >
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : paginatedSiswa.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={6 + jumlahKolomTambahan}
                     className="text-center py-6 text-muted-foreground"
                   >
                     Data siswa belum ada
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedSiswa.map((siswa, index) => {
-                    const tunggakan = getTunggakanSpp(siswa)
+                paginatedSiswa.map((siswa, index) => (
+                  <TableRow key={siswa.id_siswa}>
+                    <TableCell>
+                      {(page - 1) * ITEMS_PER_PAGE + index + 1}
+                    </TableCell>
 
-                    return (
-                    <TableRow key={siswa.id_siswa}>
-  <TableCell>
-    {(page - 1) * ITEMS_PER_PAGE + index + 1}
-  </TableCell>
+                    <TableCell className="font-medium">
+                      {siswa.nama_lengkap}
+                    </TableCell>
 
-  <TableCell className="font-medium">
-    {siswa.nama_lengkap}
-  </TableCell>
+                    <TableCell>
+                      {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
+                    </TableCell>
 
-  <TableCell>{getTingkatSiswa(siswa)}</TableCell>
+                    <TableCell>{formatRupiah(getNominalSpp(siswa))}</TableCell>
 
-  <TableCell>{getNamaKelas(siswa)}</TableCell>
+                    <TableCell className="font-semibold text-red-600">
+                      {formatRupiah(getTunggakanSpp(siswa))}
+                    </TableCell>
 
-  <TableCell>{siswa.tahun || "-"}</TableCell>
+                    {showPpdb && (
+                      <TableCell className="font-semibold text-red-600">
+                        {formatRupiah(getTunggakanPpdb(siswa))}
+                      </TableCell>
+                    )}
 
-  <TableCell>{formatRupiah(getNominalSpp(siswa))}</TableCell>
+                    {extraTagihanOptions.map((item) => {
+                      if (!extraTagihan[item.key]) return null
 
-  <TableCell className="font-semibold text-red-600">
-    {formatRupiah(tunggakan)}
-  </TableCell>
+                      return (
+                        <TableCell
+                          key={item.key}
+                          className="font-semibold text-red-600"
+                        >
+                          {formatRupiah(
+                            getNominalExtraTagihan(siswa, item.key)
+                          )}
+                        </TableCell>
+                      )
+                    })}
 
-  <TableCell className="text-right">
-    <Button size="sm" onClick={() => bukaModalBayar(siswa)}>
-      <ReceiptText className="w-4 h-4 mr-2" />
-      Bayar
-    </Button>
-  </TableCell>
-</TableRow>
-                  )
-                })
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => bukaModalBayar(siswa, "spp")}
+                        >
+                          <ReceiptText className="w-4 h-4 mr-2" />
+                          Bayar SPP
+                        </Button>
+
+                        {showPpdb && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => bukaModalBayar(siswa, "ppdb")}
+                          >
+                            Bayar PPDB
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
@@ -661,9 +1044,13 @@ const getTunggakanSpp = (siswa: Siswa) => {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Input Pembayaran</DialogTitle>
+            <DialogTitle>
+              {paymentMode === "ppdb"
+                ? "Input Pembayaran PPDB"
+                : "Input Pembayaran SPP"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -672,21 +1059,78 @@ const getTunggakanSpp = (siswa: Siswa) => {
               <Input value={selectedSiswa?.nama_lengkap || ""} disabled />
             </div>
 
-            <div>
-              <Label>Jenis Pembayaran</Label>
-              <Select value={bulan} onValueChange={setBulan}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih jenis pembayaran" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bulanSpp.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
+            <div className="rounded-lg border p-3 space-y-2">
+              <Label>3 Pembayaran SPP Terakhir</Label>
+
+              {loadingLogLast ? (
+                <p className="text-sm text-muted-foreground">
+                  Mengambil log pembayaran...
+                </p>
+              ) : logLast.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Belum ada riwayat pembayaran.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {logLast.map((log) => (
+                    <div
+                      key={log.id_logspp}
+                      className="rounded-md bg-muted p-2 text-sm flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {getLabelBulan(Number(log.bulan))} / Kelas {log.kelas}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTanggal(log.created_at)} -{" "}
+                          {getLabelBayar(log.bayar)}
+                        </p>
+                      </div>
+
+                      <p className="font-semibold">
+                        {formatRupiah(log.nominal)}
+                      </p>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
+
+            {paymentMode === "spp" ? (
+              <div>
+                <Label>Jenis Pembayaran</Label>
+                <Select value={bulan} onValueChange={handleChangeJenisPembayaran}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih jenis pembayaran" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bulanSpp.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-muted p-3 text-sm">
+                <p className="font-medium">Pembayaran PPDB</p>
+                <p className="text-muted-foreground">
+                  Target:{" "}
+                  {formatRupiah(
+                    selectedSiswa ? getTargetPpdb(selectedSiswa) : 0
+                  )}{" "}
+                  | Sudah bayar:{" "}
+                  {formatRupiah(
+                    selectedSiswa ? getTotalBayarPpdb(selectedSiswa) : 0
+                  )}{" "}
+                  | Tunggakan:{" "}
+                  {formatRupiah(
+                    selectedSiswa ? getTunggakanPpdb(selectedSiswa) : 0
+                  )}
+                </p>
+              </div>
+            )}
 
             <div>
               <Label>Nominal</Label>
@@ -700,16 +1144,30 @@ const getTunggakanSpp = (siswa: Siswa) => {
 
             <div>
               <Label>Metode Pembayaran</Label>
-              <Select value={bayar} onValueChange={setBayar}>
+              <Select
+                value={bayar}
+                onValueChange={(value: any) => setBayar(value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih metode pembayaran" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="csh">Cash</SelectItem>
                   <SelectItem value="trf">Transfer</SelectItem>
-                  <SelectItem value="sbs">Subsidi / Beasiswa</SelectItem>
+                  {paymentMode === "spp" && (
+                    <SelectItem value="sbs">Subsidi / Dibebaskan</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label>Bukti Pembayaran</Label>
+              <Input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => setBukti(e.target.files?.[0] || null)}
+              />
             </div>
           </div>
 
