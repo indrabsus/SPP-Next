@@ -114,7 +114,7 @@ export default function KelasPage() {
 
     try {
       const res = await apiFetch(
-        `/riwayat-kelas/tahun/${encodeURIComponent(tahunAjaran)}`
+        `/riwayat-kelas/tahun?tahun_ajaran=${encodeURIComponent(tahunAjaran)}`
       )
       setRiwayat(res.data || [])
     } catch (error: any) {

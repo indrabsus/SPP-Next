@@ -188,7 +188,7 @@ export default function KenaikanKelasPage() {
       // Buang siswa yang sudah lebih dulu punya data di tahun ajaran tujuan,
       // supaya setelah refresh, yang tampil cuma sisa yang belum diproses.
       const sudahDiproses = await apiFetch(
-        `/riwayat-kelas/tahun/${encodeURIComponent(tahunAjaran.trim())}`
+        `/riwayat-kelas/tahun?tahun_ajaran=${encodeURIComponent(tahunAjaran.trim())}`
       )
         .then((res) => new Set((res.data || []).map((item: any) => item.id_siswa)))
         .catch(() => new Set())
@@ -269,7 +269,7 @@ export default function KenaikanKelasPage() {
 
     try {
       const res = await apiFetch(
-        `/riwayat-kelas/tahun/${encodeURIComponent(tahunAjaran.trim())}`
+        `/riwayat-kelas/tahun?tahun_ajaran=${encodeURIComponent(tahunAjaran.trim())}`
       )
       setRiwayat(res.data || [])
     } catch (error: any) {
