@@ -1,10 +1,14 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
+import * as XLSX from "xlsx"
 import {
   ArrowUpDown,
   Eye,
+  FileSpreadsheet,
   Loader2,
+  Printer,
   RefreshCcw,
   ShieldAlert,
   Trash2,
@@ -56,6 +60,7 @@ type RiwayatKelas = {
     nama_lengkap: string
     nisn: string
     status: string
+    jenkel: "l" | "p"
   }
 }
 
@@ -184,6 +189,24 @@ export default function KelasPage() {
     return result
   }, [filteredGroups, sortKey, sortDirection])
 
+  const sortedSiswaSelected = useMemo(() => {
+    if (!selectedKelas) return []
+
+    return [...selectedKelas.siswa].sort((a, b) =>
+      (a.siswa_ppdb?.nama_lengkap || "").localeCompare(
+        b.siswa_ppdb?.nama_lengkap || ""
+      )
+    )
+  }, [selectedKelas])
+
+  const jumlahLaki = sortedSiswaSelected.filter(
+    (item) => item.siswa_ppdb?.jenkel === "l"
+  ).length
+
+  const jumlahPerempuan = sortedSiswaSelected.filter(
+    (item) => item.siswa_ppdb?.jenkel === "p"
+  ).length
+
   const bukaDetailKelas = (group: KelasGroup) => {
     setSelectedKelas(group)
     setDialogOpen(true)
@@ -225,6 +248,46 @@ export default function KelasPage() {
     }
   }
 
+  const printPdfKelas = () => {
+    window.print()
+  }
+
+  const exportExcelKelas = () => {
+    if (!selectedKelas || sortedSiswaSelected.length === 0) {
+      alert("Tidak ada siswa untuk diexport")
+      return
+    }
+
+    const rows = sortedSiswaSelected.map((item, index) => ({
+      No: index + 1,
+      "Nama Siswa": item.siswa_ppdb?.nama_lengkap || "-",
+      "Jenis Kelamin": item.siswa_ppdb?.jenkel === "l" ? "L" : "P",
+      NISN: item.siswa_ppdb?.nisn || "-",
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    worksheet["!cols"] = [{ wch: 5 }, { wch: 30 }, { wch: 12 }, { wch: 14 }]
+
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        [],
+        ["Laki-laki", jumlahLaki],
+        ["Perempuan", jumlahPerempuan],
+        ["Total", sortedSiswaSelected.length],
+      ],
+      { origin: -1 }
+    )
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Daftar Siswa")
+
+    XLSX.writeFile(
+      workbook,
+      `siswa-${selectedKelas.tingkat}-${selectedKelas.nama_kelas}-${tahunAjaran.replace(/\//g, "-")}.xlsx`
+    )
+  }
+
   if (!user) return null
 
   if (!isAdminKeuangan(user)) {
@@ -247,6 +310,59 @@ export default function KelasPage() {
 
   return (
     <div className="space-y-6">
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+
+          #print-area-kelas,
+          #print-area-kelas * {
+            visibility: visible;
+          }
+
+          /* #print-area-kelas di-portal langsung ke document.body (bukan
+             anak Dialog) supaya position:fixed-nya nempel ke viewport asli -
+             kalau taruh di dalam Dialog, animasi buka/tutup Radix bikin
+             elemen itu jadi containing block sendiri dan fixed-nya jadi
+             salah tempat. */
+          #print-area-kelas {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+            padding: 14px;
+            color: #000 !important;
+          }
+
+          /* Paksa teks hitam biar tetap kebaca walau lagi dark mode -
+             background cuma di-transparent-kan di descendant-nya, bukan di
+             #print-area-kelas sendiri, biar putih dari rule di atas tetap
+             menang (dua rule !important dgn selector sama = yg belakangan
+             menang, jadi ini harus dipisah). */
+          #print-area-kelas * {
+            color: #000 !important;
+            background-color: transparent !important;
+          }
+
+          table {
+            font-size: 11px;
+            width: 100%;
+          }
+
+          th,
+          td {
+            padding: 3px 4px !important;
+          }
+
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+        }
+      `}</style>
+
       <div>
         <h1 className="text-2xl font-bold">Kelas</h1>
         <p className="text-muted-foreground">
@@ -385,24 +501,51 @@ export default function KelasPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[60vh] overflow-y-auto space-y-2">
-            {selectedKelas?.siswa.length === 0 ? (
+          <div className="flex gap-2 mt-3 mb-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={printPdfKelas}
+              disabled={sortedSiswaSelected.length === 0}
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print PDF
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportExcelKelas}
+              disabled={sortedSiswaSelected.length === 0}
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Export Excel
+            </Button>
+          </div>
+
+          <div className="max-h-[60vh] overflow-y-auto space-y-2 mt-3">
+            {sortedSiswaSelected.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Tidak ada siswa di kelas ini.
               </p>
             ) : (
-              selectedKelas?.siswa.map((item) => (
+              sortedSiswaSelected.map((item, index) => (
                 <div
                   key={item.id_riwayat}
                   className="flex items-center justify-between rounded-lg border p-2.5"
                 >
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">
-                      {item.siswa_ppdb?.nama_lengkap || "-"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      NISN: {item.siswa_ppdb?.nisn || "-"}
-                    </p>
+                  <div className="min-w-0 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-5 shrink-0">
+                      {index + 1}.
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
+                        {item.siswa_ppdb?.nama_lengkap || "-"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        NISN: {item.siswa_ppdb?.nisn || "-"}
+                      </p>
+                    </div>
                   </div>
 
                   <Button
@@ -423,6 +566,79 @@ export default function KelasPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Versi cetak: di-portal ke document.body (bukan anak Dialog) supaya
+          position:fixed-nya tidak kena imbas animasi buka/tutup Radix
+          Dialog. Cuma dirender pas dialog lagi kebuka. */}
+      {dialogOpen &&
+        selectedKelas &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div id="print-area-kelas">
+            <div className="flex items-center gap-3 border-b-2 border-black pb-2 mb-3">
+              <img
+                src="/logo.png"
+                alt="Logo Sekolah"
+                className="h-16 w-16 object-contain"
+              />
+              <div className="flex-1 text-center">
+                <p className="font-bold text-lg">SMK SANGKURIANG 1 CIMAHI</p>
+                <p className="text-sm">
+                  Data Siswa Kelas {selectedKelas.tingkat}{" "}
+                  {selectedKelas.nama_kelas}
+                </p>
+              </div>
+            </div>
+
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="border border-black px-2 py-1 text-left">
+                    No
+                  </th>
+                  <th className="border border-black px-2 py-1 text-left">
+                    Nama Siswa
+                  </th>
+                  <th className="border border-black px-2 py-1 text-left">
+                    Jenis Kelamin
+                  </th>
+                  <th className="border border-black px-2 py-1 text-left">
+                    NISN
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedSiswaSelected.map((item, index) => (
+                  <tr key={item.id_riwayat}>
+                    <td className="border border-black px-2 py-1">
+                      {index + 1}
+                    </td>
+                    <td className="border border-black px-2 py-1">
+                      {item.siswa_ppdb?.nama_lengkap || "-"}
+                    </td>
+                    <td className="border border-black px-2 py-1">
+                      {item.siswa_ppdb?.jenkel === "l"
+                        ? "Laki-laki"
+                        : "Perempuan"}
+                    </td>
+                    <td className="border border-black px-2 py-1">
+                      {item.siswa_ppdb?.nisn || "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-3 text-sm space-y-0.5">
+              <p>Laki-laki: {jumlahLaki} siswa</p>
+              <p>Perempuan: {jumlahPerempuan} siswa</p>
+              <p className="font-semibold">
+                Total: {sortedSiswaSelected.length} siswa
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
