@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   BarChart3,
+  Clock,
   CreditCard,
   FileText,
+  GraduationCap,
   Loader2,
+  PieChart as PieChartIcon,
   RefreshCcw,
   ShieldCheck,
   Wallet,
@@ -32,6 +35,7 @@ import {
   UserLogin,
 } from "@/lib/auth"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -292,17 +296,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard Keuangan</h1>
-          <p className="text-muted-foreground">
-            Hak akses tingkat:{" "}
-            <span className="font-semibold">
-              {allowedTingkat.length > 0
-                ? allowedTingkat.join(", ")
-                : "Tidak ada akses"}
-            </span>
-          </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Wallet className="size-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Dashboard Keuangan
+            </h1>
+            <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <span>Hak akses tingkat:</span>
+              <Badge variant="secondary" className="font-semibold">
+                {allowedTingkat.length > 0
+                  ? allowedTingkat.join(", ")
+                  : "Tidak ada akses"}
+              </Badge>
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -327,18 +338,18 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="dashboard-card">
-              <CardHeader>
-                <CardTitle className="text-sm text-muted-foreground">
+            <Card className="dashboard-card gap-0 py-5 transition-shadow hover:shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Dibebaskan Bulan Ini
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center gap-3">
-                <div className="rounded-xl bg-amber-500/10 p-3 text-amber-500 dark:text-amber-400">
-                  <ShieldCheck className="w-7 h-7" />
+              <CardContent className="flex items-center gap-3.5">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400">
+                  <ShieldCheck className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold tracking-tight">
                     {formatRupiah(stats.dibebaskanBulanIni)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -348,18 +359,18 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="dashboard-card">
-              <CardHeader>
-                <CardTitle className="text-sm text-muted-foreground">
+            <Card className="dashboard-card gap-0 py-5 transition-shadow hover:shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Hari Ini
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center gap-3">
-                <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-500 dark:text-emerald-400">
-                  <CreditCard className="w-7 h-7" />
+              <CardContent className="flex items-center gap-3.5">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400">
+                  <CreditCard className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold tracking-tight">
                     {formatRupiah(stats.pembayaranHariIni)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -369,18 +380,18 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="dashboard-card">
-              <CardHeader>
-                <CardTitle className="text-sm text-muted-foreground">
+            <Card className="dashboard-card gap-0 py-5 transition-shadow hover:shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Bulan Ini
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center gap-3">
-                <div className="rounded-xl bg-cyan-500/10 p-3 text-cyan-500 dark:text-cyan-400">
-                  <Wallet className="w-7 h-7" />
+              <CardContent className="flex items-center gap-3.5">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-500 dark:text-cyan-400">
+                  <Wallet className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold tracking-tight">
                     {formatRupiah(stats.pembayaranBulanIni)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -390,18 +401,18 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="dashboard-card">
-              <CardHeader>
-                <CardTitle className="text-sm text-muted-foreground">
+            <Card className="dashboard-card gap-0 py-5 transition-shadow hover:shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Data Aktif
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center gap-3">
-                <div className="rounded-xl bg-violet-500/10 p-3 text-violet-500 dark:text-violet-400">
-                  <FileText className="w-7 h-7" />
+              <CardContent className="flex items-center gap-3.5">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-500 dark:text-violet-400">
+                  <FileText className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.totalSiswa}</p>
+                  <p className="text-2xl font-bold tracking-tight">{stats.totalSiswa}</p>
                   <p className="text-xs text-muted-foreground">
                     Siswa terambil
                   </p>
@@ -452,7 +463,10 @@ export default function DashboardPage() {
 
             <Card className="dashboard-card">
               <CardHeader>
-                <CardTitle>Komposisi Metode</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChartIcon className="w-5 h-5" />
+                  Komposisi Metode
+                </CardTitle>
               </CardHeader>
 
               <CardContent className="h-[320px]">
@@ -494,7 +508,10 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <Card className="dashboard-card">
               <CardHeader>
-                <CardTitle>Top Kelas Berdasarkan Uang Masuk</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5" />
+                  Top Kelas Berdasarkan Uang Masuk
+                </CardTitle>
               </CardHeader>
 
               <CardContent className="h-[320px]">
@@ -539,7 +556,10 @@ export default function DashboardPage() {
 
             <Card className="dashboard-card">
               <CardHeader>
-                <CardTitle>Transaksi Terbaru</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Transaksi Terbaru
+                </CardTitle>
               </CardHeader>
 
               <CardContent>
@@ -548,7 +568,7 @@ export default function DashboardPage() {
                     Belum ada transaksi.
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {transaksiTerakhir.map((item) => {
                       const nama =
                         item.siswa_ppdb?.nama_lengkap || "Tanpa Nama"
@@ -558,23 +578,29 @@ export default function DashboardPage() {
                       const tingkat =
                         item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat ||
                         item.kelas
+                      const inisial = nama.charAt(0).toUpperCase()
 
                       return (
                         <div
                           key={item.id_logspp}
-                          className="dashboard-soft-card flex items-center justify-between rounded-xl p-3"
+                          className="dashboard-soft-card flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-muted/40"
                         >
-                          <div>
-                            <p className="font-medium">{nama}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {tingkat} {kelas} •{" "}
-                              {bulanLabel[Number(item.bulan)] || "-"} •{" "}
-                              {bayarLabel[item.bayar] || item.bayar}
-                            </p>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                              {inisial}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{nama}</p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {tingkat} {kelas} •{" "}
+                                {bulanLabel[Number(item.bulan)] || "-"} •{" "}
+                                {bayarLabel[item.bayar] || item.bayar}
+                              </p>
+                            </div>
                           </div>
 
                           <p
-                            className={`font-semibold ${
+                            className={`shrink-0 font-semibold ${
                               item.bayar === "sbs"
                                 ? "text-amber-600 dark:text-amber-400"
                                 : "text-emerald-600 dark:text-emerald-400"

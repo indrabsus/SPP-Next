@@ -62,6 +62,11 @@ type LogPpdb = {
         nama_kelas: string
       }
     }
+    kelas_terkini?: {
+      tingkat?: number | string
+      nama_kelas?: string
+      tahun_ajaran?: string | null
+    } | null
   }
 }
 
@@ -120,6 +125,8 @@ export default function LogPpdbPage() {
   const [tahun, setTahun] = useState(String(tahunSekarang))
   const [metode, setMetode] = useState("semua")
   const [jenis, setJenis] = useState("semua")
+  const [tahunAjaran, setTahunAjaran] = useState("")
+  const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
 
   const [page, setPage] = useState(1)
   const [limit] = useState(50)
@@ -149,6 +156,16 @@ const openModalBukti = (bukti: string | null | undefined) => {
     setUser(currentUser)
   }, [])
 
+  useEffect(() => {
+    apiFetch("/riwayat-kelas/tahun-list")
+      .then((res) => {
+        const list: string[] = res.data || []
+        setDaftarTahunAjaran(list)
+        setTahunAjaran((prev) => prev || list[0] || "")
+      })
+      .catch(() => setDaftarTahunAjaran([]))
+  }, [])
+
   const getLogPpdb = async (targetPage = page) => {
     setLoading(true)
 
@@ -159,6 +176,10 @@ const openModalBukti = (bukti: string | null | undefined) => {
 
       if (tahun !== "semua") {
         params.set("tahun", tahun)
+      }
+
+      if (tahunAjaran) {
+        params.set("tahun_ajaran", tahunAjaran)
       }
 
       if (keyword.trim()) {
@@ -192,11 +213,11 @@ const openModalBukti = (bukti: string | null | undefined) => {
   }
 
   useEffect(() => {
-    if (user) {
+    if (user && tahunAjaran) {
       getLogPpdb(1)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tahun, metode, jenis])
+  }, [user, tahun, metode, jenis, tahunAjaran])
 
   const handleCari = () => {
     getLogPpdb(1)
@@ -220,10 +241,8 @@ const openModalBukti = (bukti: string | null | undefined) => {
         if (sortKey === "tahun") return Number(item.siswa_ppdb?.tahun || 0)
 
         if (sortKey === "kelas") {
-          const tingkat =
-            item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat || ""
-          const namaKelas =
-            item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas || ""
+          const tingkat = item.siswa_ppdb?.kelas_terkini?.tingkat || ""
+          const namaKelas = item.siswa_ppdb?.kelas_terkini?.nama_kelas || ""
 
           return `${tingkat} ${namaKelas}`
         }
@@ -273,7 +292,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
   }, [data])
 
   const printBukti = (id_log: string) => {
-    window.open(`https://sakuci.id/${id_log}/ppdbsiswa`, "_blank")
+    window.open(`https://sakuci.id/${id_log}/ppdbLog`, "_blank")
   }
 
   const hapusLog = async (id_log: string) => {
@@ -412,6 +431,22 @@ const openModalBukti = (bukti: string | null | undefined) => {
                   <SelectItem value="d">Daftar</SelectItem>
                   <SelectItem value="p">PPDB</SelectItem>
                   <SelectItem value="l">Lainnya</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Tahun Ajaran</Label>
+              <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih tahun ajaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  {daftarTahunAjaran.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -560,10 +595,9 @@ const openModalBukti = (bukti: string | null | undefined) => {
                 sortedData.map((item, index) => {
                   const namaSiswa = item.siswa_ppdb?.nama_lengkap || "-"
                   const tahunSiswa = item.siswa_ppdb?.tahun || "-"
-                  const tingkat =
-                    item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat || "-"
+                  const tingkat = item.siswa_ppdb?.kelas_terkini?.tingkat || "-"
                   const namaKelas =
-                    item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas || "-"
+                    item.siswa_ppdb?.kelas_terkini?.nama_kelas || "-"
 
                   return (
                     <TableRow key={item.id_log}>

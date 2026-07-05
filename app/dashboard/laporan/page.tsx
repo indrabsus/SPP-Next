@@ -62,6 +62,11 @@ type Siswa = {
       nama_kelas?: string
     }
   }
+  kelas_terkini?: {
+    tingkat?: number | string
+    nama_kelas?: string
+    tahun_ajaran?: string | null
+  }
 }
 
 type Kelas = {
@@ -124,6 +129,8 @@ export default function LaporanPage() {
 
   const [tingkat, setTingkat] = useState("")
   const [idKelas, setIdKelas] = useState("")
+  const [tahunAjaran, setTahunAjaran] = useState("")
+  const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
   const [keyword, setKeyword] = useState("")
 
   const [kelas, setKelas] = useState<Kelas[]>([])
@@ -153,6 +160,16 @@ export default function LaporanPage() {
 
     setUser(currentUser)
     setTingkat(allowed[0] || "")
+  }, [])
+
+  useEffect(() => {
+    apiFetch("/riwayat-kelas/tahun-list")
+      .then((res) => {
+        const list: string[] = res.data || []
+        setDaftarTahunAjaran(list)
+        setTahunAjaran((prev) => prev || list[0] || "")
+      })
+      .catch(() => setDaftarTahunAjaran([]))
   }, [])
 
   const allowedTingkat = user ? getAllowedTingkat(user) : []
@@ -269,6 +286,10 @@ export default function LaporanPage() {
       params.set("tingkat", tingkat)
       params.set("id_kelas", idKelas)
 
+      if (tahunAjaran) {
+        params.set("tahun_ajaran", tahunAjaran)
+      }
+
       if (keyword.trim()) {
         params.set("keyword", keyword.trim())
       }
@@ -301,11 +322,11 @@ export default function LaporanPage() {
   }, [tingkat])
 
   const getTingkatSiswa = (item: Siswa) => {
-    return String(item.siswa_baru?.kelas_ppdb?.tingkat || tingkat)
+    return String(item.kelas_terkini?.tingkat || tingkat)
   }
 
   const getNamaKelas = (item: Siswa) => {
-    return item.siswa_baru?.kelas_ppdb?.nama_kelas || "-"
+    return item.kelas_terkini?.nama_kelas || "-"
   }
 
   const getNominalSpp = (item: Siswa) => {
@@ -683,6 +704,22 @@ export default function LaporanPage() {
                 </Select>
               </div>
             )}
+
+            <div>
+              <Label>Tahun Ajaran</Label>
+              <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih tahun ajaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  {daftarTahunAjaran.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div>
               <Label>Kelas</Label>

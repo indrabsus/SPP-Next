@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Archive,
+  ArrowUpCircle,
+  CalendarDays,
   CreditCard,
   DatabaseBackup,
   FileText,
@@ -15,10 +17,12 @@ import {
   PanelLeftOpen,
   ScrollText,
   Settings,
+  Users,
   Wallet,
   X,
 } from "lucide-react"
 
+import { apiFetch } from "@/lib/api"
 import {
   getAllowedTingkat,
   getUser,
@@ -73,9 +77,21 @@ const allMenus = [
     adminOnly: true,
   },
   {
-  title: "Arsip Angkatan",
+  title: "Backup & Restore",
   href: "/dashboard/arsip-angkatan",
   icon: Archive,
+  adminOnly: true,
+},
+  {
+  title: "Kenaikan Kelas",
+  href: "/dashboard/kenaikan-kelas",
+  icon: ArrowUpCircle,
+  adminOnly: true,
+},
+  {
+  title: "Kelas",
+  href: "/dashboard/kelas",
+  icon: Users,
   adminOnly: true,
 },
   {
@@ -96,6 +112,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<UserLogin | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [tahunAjaranAktif, setTahunAjaranAktif] = useState<string | null>(null)
 
   useEffect(() => {
     const currentUser = getUser()
@@ -107,6 +124,14 @@ export default function DashboardLayout({
 
     setUser(currentUser)
   }, [router])
+
+  useEffect(() => {
+    if (!user) return
+
+    apiFetch("/riwayat-kelas/tahun-aktif")
+      .then((res) => setTahunAjaranAktif(res.data?.tahun_ajaran || null))
+      .catch(() => setTahunAjaranAktif(null))
+  }, [user])
 
   if (!user) return null
 
@@ -313,6 +338,13 @@ export default function DashboardLayout({
                 SMK Sangkuriang 1 Cimahi
               </p>
             </div>
+
+            {tahunAjaranAktif && (
+              <Badge variant="outline" className="hidden sm:inline-flex">
+                <CalendarDays className="w-3 h-3 mr-1" />
+                Tahun Ajaran {tahunAjaranAktif}
+              </Badge>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

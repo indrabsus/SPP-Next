@@ -1,7 +1,15 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { ArrowUpDown, ReceiptText, Search } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  ArrowUpDown,
+  Camera,
+  ReceiptText,
+  RotateCcw,
+  Search,
+  Upload,
+  X,
+} from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
 import {
@@ -74,6 +82,11 @@ type Siswa = {
       nama_kelas?: string
     }
   }
+  kelas_terkini?: {
+    tingkat?: number | string
+    nama_kelas?: string
+    tahun_ajaran?: string | null
+  }
 }
 
 type Kelas = {
@@ -145,6 +158,15 @@ const bulanSpp = [
 const bulanTagihan = bulanSpp.slice(0, 12)
 const ITEMS_PER_PAGE = 50
 
+// Bulan 13/14/15 ("Tunggakan Kelas 10/11/12") itu tagihan yang menempel ke
+// tingkat tertentu, terlepas dari tingkat siswa sekarang - jadi log_spp.kelas
+// harus ikut angka tunggakannya, bukan tingkat siswa saat ini.
+const KELAS_TUNGGAKAN_BY_BULAN: Record<string, string> = {
+  "13": "10",
+  "14": "11",
+  "15": "12",
+}
+
 const getBulanSekarangSpp = () => {
   const bulan = new Date().getMonth() + 1
 
@@ -212,6 +234,8 @@ export default function PembayaranPage() {
 
   const [tingkat, setTingkat] = useState("")
   const [idKelas, setIdKelas] = useState("semua")
+  const [tahunAjaran, setTahunAjaran] = useState("")
+  const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
   const [keyword, setKeyword] = useState("")
   const [bulanFilter, setBulanFilter] = useState(getBulanSekarangSpp())
   const [showPpdb, setShowPpdb] = useState(false)
@@ -249,7 +273,13 @@ export default function PembayaranPage() {
   const [nominal, setNominal] = useState("0")
   const [bayar, setBayar] = useState<"csh" | "trf" | "sbs">("csh")
   const [bukti, setBukti] = useState<File | null>(null)
+  const [buktiPreviewUrl, setBuktiPreviewUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const [buktiMode, setBuktiMode] = useState<"file" | "kamera">("file")
+  const [kameraAktif, setKameraAktif] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   const [logLast, setLogLast] = useState<LogSpp[]>([])
   const [loadingLogLast, setLoadingLogLast] = useState(false)
@@ -262,6 +292,16 @@ export default function PembayaranPage() {
 
     setUser(currentUser)
     setTingkat(allowed[0] || "")
+  }, [])
+
+  useEffect(() => {
+    apiFetch("/riwayat-kelas/tahun-list")
+      .then((res) => {
+        const list: string[] = res.data || []
+        setDaftarTahunAjaran(list)
+        setTahunAjaran((prev) => prev || list[0] || "")
+      })
+      .catch(() => setDaftarTahunAjaran([]))
   }, [])
 
   const allowedTingkat = user ? getAllowedTingkat(user) : []
@@ -370,6 +410,10 @@ export default function PembayaranPage() {
       const params = new URLSearchParams()
       params.set("tingkat", tingkat)
 
+      if (tahunAjaran) {
+        params.set("tahun_ajaran", tahunAjaran)
+      }
+
       if (idKelas !== "semua") {
         params.set("id_kelas", idKelas)
       }
@@ -420,18 +464,18 @@ export default function PembayaranPage() {
   }, [tingkat])
 
   useEffect(() => {
-    if (tingkat) {
+    if (tingkat && tahunAjaran) {
       getSiswa()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tingkat, idKelas])
+  }, [tingkat, idKelas, tahunAjaran])
 
   const getTingkatSiswa = (siswa: Siswa) => {
-    return String(siswa.siswa_baru?.kelas_ppdb?.tingkat || tingkat)
+    return String(siswa.kelas_terkini?.tingkat || tingkat)
   }
 
   const getNamaKelas = (siswa: Siswa) => {
-    return siswa.siswa_baru?.kelas_ppdb?.nama_kelas || "-"
+    return siswa.kelas_terkini?.nama_kelas || "-"
   }
 
   const getNominalSpp = (siswa: Siswa) => {
@@ -626,10 +670,93 @@ export default function PembayaranPage() {
     page * ITEMS_PER_PAGE
   )
 
+  const stopKamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    setKameraAktif(false)
+  }
+
+  const startKamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      })
+
+      streamRef.current = stream
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+
+      setKameraAktif(true)
+    } catch (error: any) {
+      alert("Gagal mengakses kamera: " + (error.message || "tidak diizinkan"))
+      setBuktiMode("file")
+    }
+  }
+
+  const ambilFoto = () => {
+    const video = videoRef.current
+    if (!video) return
+
+    const canvas = document.createElement("canvas")
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+
+    const ctx = canvas.getContext("2d")
+    ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return
+
+        const file = new File([blob], `bukti-kamera-${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        })
+
+        setBukti(file)
+        stopKamera()
+      },
+      "image/jpeg",
+      0.9
+    )
+  }
+
+  useEffect(() => {
+    if (buktiMode === "kamera" && open) {
+      startKamera()
+    } else {
+      stopKamera()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buktiMode, open])
+
+  useEffect(() => {
+    return () => stopKamera()
+  }, [])
+
+  const ambilUlangFoto = () => {
+    setBukti(null)
+    startKamera()
+  }
+
+  useEffect(() => {
+    if (!bukti) {
+      setBuktiPreviewUrl(null)
+      return
+    }
+
+    const url = URL.createObjectURL(bukti)
+    setBuktiPreviewUrl(url)
+
+    return () => URL.revokeObjectURL(url)
+  }, [bukti])
+
   const bukaModalBayar = (siswa: Siswa, mode: PaymentMode = "spp") => {
     setSelectedSiswa(siswa)
     setPaymentMode(mode)
     setBukti(null)
+    setBuktiMode("file")
     setLogLast([])
     setOpen(true)
 
@@ -689,8 +816,11 @@ export default function PembayaranPage() {
           return
         }
 
+        const kelasUntukLog =
+          KELAS_TUNGGAKAN_BY_BULAN[bulan] || getTingkatSiswa(selectedSiswa)
+
         formData.append("bulan", String(Number(bulan)))
-        formData.append("kelas", String(Number(getTingkatSiswa(selectedSiswa))))
+        formData.append("kelas", String(Number(kelasUntukLog)))
         formData.append("status", getStatusByBulan(bulan))
 
         await apiFetch("/spp/bayar", {
@@ -730,23 +860,41 @@ export default function PembayaranPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {isAdminKeuangan(user) && (
+          <div className="flex flex-col md:flex-row gap-3">
+            {isAdminKeuangan(user) && (
+              <div className="max-w-xs">
+                <Label>Tingkat</Label>
+                <Select value={tingkat} onValueChange={setTingkat}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih tingkat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedTingkat.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        Kelas {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="max-w-xs">
-              <Label>Tingkat</Label>
-              <Select value={tingkat} onValueChange={setTingkat}>
+              <Label>Tahun Ajaran</Label>
+              <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pilih tingkat" />
+                  <SelectValue placeholder="Pilih tahun ajaran" />
                 </SelectTrigger>
                 <SelectContent>
-                  {allowedTingkat.map((item) => (
+                  {daftarTahunAjaran.map((item) => (
                     <SelectItem key={item} value={item}>
-                      Kelas {item}
+                      {item}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
+          </div>
 
           <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1">
@@ -1161,13 +1309,101 @@ export default function PembayaranPage() {
               </Select>
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label>Bukti Pembayaran</Label>
-              <Input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setBukti(e.target.files?.[0] || null)}
-              />
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={buktiMode === "file" ? "default" : "outline"}
+                  onClick={() => {
+                    setBuktiMode("file")
+                    setBukti(null)
+                  }}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload File
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={buktiMode === "kamera" ? "default" : "outline"}
+                  onClick={() => {
+                    setBuktiMode("kamera")
+                    setBukti(null)
+                  }}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Ambil dari Kamera
+                </Button>
+              </div>
+
+              {buktiMode === "file" && !bukti && (
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setBukti(e.target.files?.[0] || null)}
+                />
+              )}
+
+              {buktiMode === "kamera" && !bukti && (
+                <div className="space-y-2">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full max-w-sm rounded-lg border bg-black"
+                  />
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={ambilFoto}
+                    disabled={!kameraAktif}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Ambil Foto
+                  </Button>
+                </div>
+              )}
+
+              {bukti && buktiPreviewUrl && (
+                <div className="flex items-center gap-3 rounded-lg border p-2">
+                  <img
+                    src={buktiPreviewUrl}
+                    alt="Preview bukti"
+                    className="h-20 w-20 rounded-md object-cover"
+                  />
+
+                  <div className="flex-1 text-sm text-muted-foreground truncate">
+                    {bukti.name}
+                  </div>
+
+                  {buktiMode === "kamera" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={ambilUlangFoto}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Ambil Ulang
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="outline"
+                      onClick={() => setBukti(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

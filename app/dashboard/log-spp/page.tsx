@@ -66,6 +66,11 @@ type LogSpp = {
         nama_kelas: string
       }
     }
+    kelas_terkini?: {
+      tingkat?: number | string
+      nama_kelas?: string
+      tahun_ajaran?: string | null
+    } | null
   }
 }
 
@@ -136,6 +141,8 @@ export default function LogSppPage() {
   const [keyword, setKeyword] = useState("")
   const [tingkat, setTingkat] = useState("semua")
   const [metode, setMetode] = useState("semua")
+  const [tahunAjaran, setTahunAjaran] = useState("")
+  const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
 
   const [page, setPage] = useState(1)
   const [limit] = useState(50)
@@ -177,6 +184,16 @@ const openModalBukti = (bukti: string | null | undefined) => {
     }
   }, [])
 
+  useEffect(() => {
+    apiFetch("/riwayat-kelas/tahun-list")
+      .then((res) => {
+        const list: string[] = res.data || []
+        setDaftarTahunAjaran(list)
+        setTahunAjaran((prev) => prev || list[0] || "")
+      })
+      .catch(() => setDaftarTahunAjaran([]))
+  }, [])
+
   const allowedTingkat = user ? getAllowedTingkat(user) : []
 
   const getLogSpp = async (targetPage = page) => {
@@ -189,6 +206,10 @@ const openModalBukti = (bukti: string | null | undefined) => {
 
       if (keyword.trim()) {
         params.set("keyword", keyword.trim())
+      }
+
+      if (tahunAjaran) {
+        params.set("tahun_ajaran", tahunAjaran)
       }
 
       if (isAdminKeuangan(user)) {
@@ -225,11 +246,11 @@ const openModalBukti = (bukti: string | null | undefined) => {
   }
 
   useEffect(() => {
-    if (user) {
+    if (user && tahunAjaran) {
       getLogSpp(1)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tingkat, metode])
+  }, [user, tingkat, metode, tahunAjaran])
 
   const handleCari = () => {
     getLogSpp(1)
@@ -253,11 +274,8 @@ const openModalBukti = (bukti: string | null | undefined) => {
 
         if (sortKey === "kelas") {
           const tingkatSiswa =
-            item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat ||
-            item.kelas ||
-            ""
-          const namaKelas =
-            item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas || ""
+            item.siswa_ppdb?.kelas_terkini?.tingkat || item.kelas || ""
+          const namaKelas = item.siswa_ppdb?.kelas_terkini?.nama_kelas || ""
 
           return `${tingkatSiswa} ${namaKelas}`
         }
@@ -381,7 +399,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <Label>Tingkat</Label>
               <Select
@@ -408,6 +426,22 @@ const openModalBukti = (bukti: string | null | undefined) => {
                           Kelas {item}
                         </SelectItem>
                       ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Tahun Ajaran</Label>
+              <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih tahun ajaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  {daftarTahunAjaran.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -529,9 +563,9 @@ const openModalBukti = (bukti: string | null | undefined) => {
                 sortedData.map((item, index) => {
                   const namaSiswa = item.siswa_ppdb?.nama_lengkap || "-"
                   const namaKelas =
-                    item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas || "-"
+                    item.siswa_ppdb?.kelas_terkini?.nama_kelas || "-"
                   const tingkatSiswa =
-                    item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat ||
+                    item.siswa_ppdb?.kelas_terkini?.tingkat ||
                     item.kelas ||
                     "-"
 
