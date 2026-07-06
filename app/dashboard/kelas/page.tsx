@@ -19,6 +19,7 @@ import { apiFetch } from "@/lib/api"
 import { getUser, isAdminKeuangan, UserLogin } from "@/lib/auth"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -85,6 +86,8 @@ export default function KelasPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedKelas, setSelectedKelas] = useState<KelasGroup | null>(null)
   const [removingId, setRemovingId] = useState("")
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkRemoving, setBulkRemoving] = useState(false)
 
   const [sortKey, setSortKey] = useState<SortKey>("tingkat")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -209,7 +212,32 @@ export default function KelasPage() {
 
   const bukaDetailKelas = (group: KelasGroup) => {
     setSelectedKelas(group)
+    setSelectedIds(new Set())
     setDialogOpen(true)
+  }
+
+  const semuaTerpilih =
+    sortedSiswaSelected.length > 0 &&
+    selectedIds.size === sortedSiswaSelected.length
+
+  const toggleSelectSatu = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectSemua = () => {
+    if (semuaTerpilih) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(sortedSiswaSelected.map((item) => item.id_riwayat)))
+    }
   }
 
   const removeSiswaDariKelas = async (item: RiwayatKelas) => {
@@ -241,11 +269,61 @@ export default function KelasPage() {
             }
           : prev
       )
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(item.id_riwayat)
+        return next
+      })
     } catch (error: any) {
       alert(error.message || "Gagal mengeluarkan siswa dari kelas")
     } finally {
       setRemovingId("")
     }
+  }
+
+  const hapusTerpilih = async () => {
+    const idList = Array.from(selectedIds)
+    if (idList.length === 0) return
+
+    if (
+      !confirm(
+        `Keluarkan ${idList.length} siswa terpilih dari kelas ini? Aksi ini tidak bisa dibatalkan.`
+      )
+    ) {
+      return
+    }
+
+    setBulkRemoving(true)
+
+    let berhasil = 0
+    let gagal = 0
+
+    for (const id of idList) {
+      try {
+        await apiFetch(`/riwayat-kelas/${id}`, { method: "DELETE" })
+        berhasil += 1
+      } catch {
+        gagal += 1
+      }
+    }
+
+    setRiwayat((prev) => prev.filter((r) => !idList.includes(r.id_riwayat)))
+    setSelectedKelas((prev) =>
+      prev
+        ? {
+            ...prev,
+            siswa: prev.siswa.filter((s) => !idList.includes(s.id_riwayat)),
+          }
+        : prev
+    )
+    setSelectedIds(new Set())
+    setBulkRemoving(false)
+
+    alert(
+      gagal > 0
+        ? `${berhasil} siswa berhasil dikeluarkan, ${gagal} gagal.`
+        : `${berhasil} siswa berhasil dikeluarkan dari kelas.`
+    )
   }
 
   const printPdfKelas = () => {
@@ -312,53 +390,43 @@ export default function KelasPage() {
     <div className="space-y-6">
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
+          /* #print-area-kelas di-portal langsung jadi anak document.body.
+             Semua anak body LAINNYA di-display:none (bukan visibility:hidden)
+             supaya benar-benar hilang dari layout - kalau cuma disembunyikan
+             lewat visibility, tinggi kosongnya tetap dihitung dan bikin
+             browser nambah halaman ke-2 yang kosong. Dengan display:none,
+             #print-area-kelas jadi satu-satunya konten di halaman cetak. */
+          body > *:not(#print-area-kelas) {
+            display: none !important;
           }
 
-          #print-area-kelas,
-          #print-area-kelas * {
-            visibility: visible;
-          }
-
-          /* #print-area-kelas di-portal langsung ke document.body (bukan
-             anak Dialog) supaya position:fixed-nya nempel ke viewport asli -
-             kalau taruh di dalam Dialog, animasi buka/tutup Radix bikin
-             elemen itu jadi containing block sendiri dan fixed-nya jadi
-             salah tempat. */
           #print-area-kelas {
-            position: fixed;
-            left: 0;
-            top: 0;
             width: 100%;
             background: white !important;
-            padding: 14px;
+            padding: 8px;
             color: #000 !important;
           }
 
-          /* Paksa teks hitam biar tetap kebaca walau lagi dark mode -
-             background cuma di-transparent-kan di descendant-nya, bukan di
-             #print-area-kelas sendiri, biar putih dari rule di atas tetap
-             menang (dua rule !important dgn selector sama = yg belakangan
-             menang, jadi ini harus dipisah). */
+          /* Paksa teks hitam biar tetap kebaca walau lagi dark mode. */
           #print-area-kelas * {
             color: #000 !important;
             background-color: transparent !important;
           }
 
           table {
-            font-size: 11px;
+            font-size: 10px;
             width: 100%;
           }
 
           th,
           td {
-            padding: 3px 4px !important;
+            padding: 2px 4px !important;
+            line-height: 1.2 !important;
           }
 
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 8mm;
           }
         }
       `}</style>
@@ -523,6 +591,32 @@ export default function KelasPage() {
             </Button>
           </div>
 
+          {sortedSiswaSelected.length > 0 && (
+            <div className="flex items-center justify-between gap-2 mt-1">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <Checkbox
+                  checked={semuaTerpilih}
+                  onCheckedChange={toggleSelectSemua}
+                />
+                Pilih Semua ({selectedIds.size}/{sortedSiswaSelected.length})
+              </label>
+
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={hapusTerpilih}
+                disabled={selectedIds.size === 0 || bulkRemoving}
+              >
+                {bulkRemoving ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                Hapus Terpilih ({selectedIds.size})
+              </Button>
+            </div>
+          )}
+
           <div className="max-h-[60vh] overflow-y-auto space-y-2 mt-3">
             {sortedSiswaSelected.length === 0 ? (
               <p className="text-sm text-muted-foreground">
@@ -535,6 +629,11 @@ export default function KelasPage() {
                   className="flex items-center justify-between rounded-lg border p-2.5"
                 >
                   <div className="min-w-0 flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedIds.has(item.id_riwayat)}
+                      onCheckedChange={() => toggleSelectSatu(item.id_riwayat)}
+                      className="shrink-0"
+                    />
                     <span className="text-xs text-muted-foreground w-5 shrink-0">
                       {index + 1}.
                     </span>
@@ -552,7 +651,7 @@ export default function KelasPage() {
                     variant="destructive"
                     size="icon-sm"
                     onClick={() => removeSiswaDariKelas(item)}
-                    disabled={removingId === item.id_riwayat}
+                    disabled={removingId === item.id_riwayat || bulkRemoving}
                   >
                     {removingId === item.id_riwayat ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -575,15 +674,15 @@ export default function KelasPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div id="print-area-kelas">
-            <div className="flex items-center gap-3 border-b-2 border-black pb-2 mb-3">
+            <div className="flex items-center gap-3 border-b-2 border-black pb-1 mb-2">
               <img
                 src="/logo.png"
                 alt="Logo Sekolah"
-                className="h-16 w-16 object-contain"
+                className="h-12 w-12 object-contain"
               />
               <div className="flex-1 text-center">
-                <p className="font-bold text-lg">SMK SANGKURIANG 1 CIMAHI</p>
-                <p className="text-sm">
+                <p className="font-bold text-base">SMK SANGKURIANG 1 CIMAHI</p>
+                <p className="text-xs">
                   Data Siswa Kelas {selectedKelas.tingkat}{" "}
                   {selectedKelas.nama_kelas}
                 </p>
@@ -629,7 +728,7 @@ export default function KelasPage() {
               </tbody>
             </table>
 
-            <div className="mt-3 text-sm space-y-0.5">
+            <div className="mt-1 text-xs space-y-0">
               <p>Laki-laki: {jumlahLaki} siswa</p>
               <p>Perempuan: {jumlahPerempuan} siswa</p>
               <p className="font-semibold">

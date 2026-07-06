@@ -85,7 +85,7 @@ export default function BackupRestoreTahunAjaranPage() {
 
     try {
       const res = await apiFetch(
-        `/spp/arsip/summary-ta/${encodeURIComponent(tahunAjaran)}`
+        `/spp/arsip/summary-ta?tahun_ajaran=${encodeURIComponent(tahunAjaran)}`
       )
       setSummary(res.data)
     } catch (error: any) {
@@ -110,7 +110,7 @@ export default function BackupRestoreTahunAjaranPage() {
       const token = localStorage.getItem("token")
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/spp/arsip/backup-ta/${encodeURIComponent(
+        `${process.env.NEXT_PUBLIC_API_URL}/spp/arsip/backup-ta?tahun_ajaran=${encodeURIComponent(
           tahunAjaran
         )}`,
         {

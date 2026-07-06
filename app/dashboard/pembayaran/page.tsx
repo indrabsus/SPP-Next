@@ -4,10 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowUpDown,
   Camera,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  History,
+  Loader2,
   ReceiptText,
   RotateCcw,
   Search,
+  SlidersHorizontal,
   Upload,
+  Users,
+  Wallet,
   X,
 } from "lucide-react"
 
@@ -19,7 +27,9 @@ import {
   UserLogin,
 } from "@/lib/auth"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -847,22 +857,30 @@ export default function PembayaranPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Pembayaran SPP</h1>
-        <p className="text-muted-foreground">
-          Cari siswa, lihat tunggakan, lalu input pembayaran.
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Wallet className="size-5" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Pembayaran SPP</h1>
+          <p className="text-sm text-muted-foreground">
+            Cari siswa, lihat tunggakan, lalu input pembayaran.
+          </p>
+        </div>
       </div>
 
-      <Card>
+      <Card className="dashboard-card">
         <CardHeader>
-          <CardTitle>Filter Data Siswa</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            Filter Data Siswa
+          </CardTitle>
         </CardHeader>
 
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           <div className="flex flex-col md:flex-row gap-3">
             {isAdminKeuangan(user) && (
-              <div className="max-w-xs">
+              <div className="max-w-xs w-full">
                 <Label>Tingkat</Label>
                 <Select value={tingkat} onValueChange={setTingkat}>
                   <SelectTrigger>
@@ -879,7 +897,7 @@ export default function PembayaranPage() {
               </div>
             )}
 
-            <div className="max-w-xs">
+            <div className="max-w-xs w-full">
               <Label>Tahun Ajaran</Label>
               <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
                 <SelectTrigger>
@@ -900,14 +918,18 @@ export default function PembayaranPage() {
             <div className="flex-1">
               <Label>Cari Siswa</Label>
               <div className="flex gap-2">
-                <Input
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="Cari nama siswa..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") getSiswa()
-                  }}
-                />
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    placeholder="Cari nama siswa..."
+                    className="pl-9"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") getSiswa()
+                    }}
+                  />
+                </div>
 
                 <Button onClick={getSiswa}>
                   <Search className="w-4 h-4 mr-2" />
@@ -956,15 +978,17 @@ export default function PembayaranPage() {
             </div>
           </div>
 
-          <div className="rounded-lg border p-4 space-y-3">
-            <Label>Kolom Tunggakan</Label>
+          <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+            <Label className="flex items-center gap-2 text-foreground">
+              <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
+              Kolom Tunggakan
+            </Label>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
+              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+                <Checkbox
                   checked={showPpdb}
-                  onChange={(e) => setShowPpdb(e.target.checked)}
+                  onCheckedChange={(checked) => setShowPpdb(checked === true)}
                 />
                 Tunggakan PPDB
               </label>
@@ -975,18 +999,17 @@ export default function PembayaranPage() {
                 return (
                   <label
                     key={item.key}
-                    className={`flex items-center gap-2 text-sm ${
-                      enabled ? "" : "opacity-40"
+                    className={`flex items-center gap-2 text-sm select-none ${
+                      enabled ? "cursor-pointer" : "opacity-40"
                     }`}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={extraTagihan[item.key]}
                       disabled={!enabled}
-                      onChange={(e) =>
+                      onCheckedChange={(checked) =>
                         setExtraTagihan((prev) => ({
                           ...prev,
-                          [item.key]: e.target.checked,
+                          [item.key]: checked === true,
                         }))
                       }
                     />
@@ -999,12 +1022,15 @@ export default function PembayaranPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="dashboard-card">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Data Siswa</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Total: {sortedSiswa.length} siswa
-          </p>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            Data Siswa
+          </CardTitle>
+          <Badge variant="secondary" className="font-semibold">
+            {sortedSiswa.length} siswa
+          </Badge>
         </CardHeader>
 
         <CardContent>
@@ -1082,16 +1108,19 @@ export default function PembayaranPage() {
                 <TableRow>
                   <TableCell
                     colSpan={6 + jumlahKolomTambahan}
-                    className="text-center py-6"
+                    className="py-10"
                   >
-                    Loading...
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Mengambil data siswa...
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : paginatedSiswa.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6 + jumlahKolomTambahan}
-                    className="text-center py-6 text-muted-foreground"
+                    className="text-center py-10 text-muted-foreground"
                   >
                     Data siswa belum ada
                   </TableCell>
@@ -1111,14 +1140,16 @@ export default function PembayaranPage() {
                       {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
                     </TableCell>
 
-                    <TableCell>{formatRupiah(getNominalSpp(siswa))}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatRupiah(getNominalSpp(siswa))}
+                    </TableCell>
 
-                    <TableCell className="font-semibold text-red-600">
+                    <TableCell className="font-semibold text-red-600 dark:text-red-400">
                       {formatRupiah(getTunggakanSpp(siswa))}
                     </TableCell>
 
                     {showPpdb && (
-                      <TableCell className="font-semibold text-red-600">
+                      <TableCell className="font-semibold text-red-600 dark:text-red-400">
                         {formatRupiah(getTunggakanPpdb(siswa))}
                       </TableCell>
                     )}
@@ -1129,7 +1160,7 @@ export default function PembayaranPage() {
                       return (
                         <TableCell
                           key={item.key}
-                          className="font-semibold text-red-600"
+                          className="font-semibold text-red-600 dark:text-red-400"
                         >
                           {formatRupiah(
                             getNominalExtraTagihan(siswa, item.key)
@@ -1173,18 +1204,22 @@ export default function PembayaranPage() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 disabled={page <= 1}
                 onClick={() => setPage((prev) => prev - 1)}
               >
+                <ChevronLeft className="w-4 h-4 mr-1" />
                 Sebelumnya
               </Button>
 
               <Button
                 variant="outline"
+                size="sm"
                 disabled={page >= totalPage}
                 onClick={() => setPage((prev) => prev + 1)}
               >
                 Berikutnya
+                <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </div>
@@ -1207,13 +1242,17 @@ export default function PembayaranPage() {
               <Input value={selectedSiswa?.nama_lengkap || ""} disabled />
             </div>
 
-            <div className="rounded-lg border p-3 space-y-2">
-              <Label>3 Pembayaran SPP Terakhir</Label>
+            <div className="rounded-xl border bg-muted/30 p-3 space-y-2">
+              <Label className="flex items-center gap-2 text-foreground">
+                <History className="w-4 h-4 text-muted-foreground" />
+                3 Pembayaran SPP Terakhir
+              </Label>
 
               {loadingLogLast ? (
-                <p className="text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 py-1 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   Mengambil log pembayaran...
-                </p>
+                </div>
               ) : logLast.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Belum ada riwayat pembayaran.
@@ -1223,10 +1262,10 @@ export default function PembayaranPage() {
                   {logLast.map((log) => (
                     <div
                       key={log.id_logspp}
-                      className="rounded-md bg-muted p-2 text-sm flex items-center justify-between gap-3"
+                      className="rounded-lg bg-background border p-2.5 text-sm flex items-center justify-between gap-3"
                     >
-                      <div>
-                        <p className="font-medium">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
                           {getLabelBulan(Number(log.bulan))} / Kelas {log.kelas}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -1235,7 +1274,7 @@ export default function PembayaranPage() {
                         </p>
                       </div>
 
-                      <p className="font-semibold">
+                      <p className="font-semibold shrink-0">
                         {formatRupiah(log.nominal)}
                       </p>
                     </div>
@@ -1261,52 +1300,68 @@ export default function PembayaranPage() {
                 </Select>
               </div>
             ) : (
-              <div className="rounded-lg bg-muted p-3 text-sm">
+              <div className="rounded-xl border bg-muted/30 p-3 space-y-1.5 text-sm">
                 <p className="font-medium">Pembayaran PPDB</p>
-                <p className="text-muted-foreground">
-                  Target:{" "}
-                  {formatRupiah(
-                    selectedSiswa ? getTargetPpdb(selectedSiswa) : 0
-                  )}{" "}
-                  | Sudah bayar:{" "}
-                  {formatRupiah(
-                    selectedSiswa ? getTotalBayarPpdb(selectedSiswa) : 0
-                  )}{" "}
-                  | Tunggakan:{" "}
-                  {formatRupiah(
-                    selectedSiswa ? getTunggakanPpdb(selectedSiswa) : 0
-                  )}
-                </p>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+                  <span>
+                    Target:{" "}
+                    <span className="text-foreground font-medium">
+                      {formatRupiah(
+                        selectedSiswa ? getTargetPpdb(selectedSiswa) : 0
+                      )}
+                    </span>
+                  </span>
+                  <span className="text-border">|</span>
+                  <span>
+                    Sudah bayar:{" "}
+                    <span className="text-foreground font-medium">
+                      {formatRupiah(
+                        selectedSiswa ? getTotalBayarPpdb(selectedSiswa) : 0
+                      )}
+                    </span>
+                  </span>
+                  <span className="text-border">|</span>
+                  <span>
+                    Tunggakan:{" "}
+                    <span className="font-semibold text-red-600 dark:text-red-400">
+                      {formatRupiah(
+                        selectedSiswa ? getTunggakanPpdb(selectedSiswa) : 0
+                      )}
+                    </span>
+                  </span>
+                </div>
               </div>
             )}
 
-            <div>
-              <Label>Nominal</Label>
-              <Input
-                type="number"
-                value={nominal}
-                onChange={(e) => setNominal(e.target.value)}
-                placeholder="Masukkan nominal"
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Nominal</Label>
+                <Input
+                  type="number"
+                  value={nominal}
+                  onChange={(e) => setNominal(e.target.value)}
+                  placeholder="Masukkan nominal"
+                />
+              </div>
 
-            <div>
-              <Label>Metode Pembayaran</Label>
-              <Select
-                value={bayar}
-                onValueChange={(value: any) => setBayar(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih metode pembayaran" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="csh">Cash</SelectItem>
-                  <SelectItem value="trf">Transfer</SelectItem>
-                  {paymentMode === "spp" && (
-                    <SelectItem value="sbs">Subsidi / Dibebaskan</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <div>
+                <Label>Metode Pembayaran</Label>
+                <Select
+                  value={bayar}
+                  onValueChange={(value: any) => setBayar(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih metode pembayaran" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csh">Cash</SelectItem>
+                    <SelectItem value="trf">Transfer</SelectItem>
+                    {paymentMode === "spp" && (
+                      <SelectItem value="sbs">Subsidi / Dibebaskan</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1371,11 +1426,11 @@ export default function PembayaranPage() {
               )}
 
               {bukti && buktiPreviewUrl && (
-                <div className="flex items-center gap-3 rounded-lg border p-2">
+                <div className="flex items-center gap-3 rounded-xl border bg-muted/30 p-2.5">
                   <img
                     src={buktiPreviewUrl}
                     alt="Preview bukti"
-                    className="h-20 w-20 rounded-md object-cover"
+                    className="h-20 w-20 rounded-lg object-cover"
                   />
 
                   <div className="flex-1 text-sm text-muted-foreground truncate">
@@ -1413,6 +1468,7 @@ export default function PembayaranPage() {
             </Button>
 
             <Button onClick={simpanPembayaran} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {saving ? "Menyimpan..." : "Simpan Pembayaran"}
             </Button>
           </DialogFooter>
