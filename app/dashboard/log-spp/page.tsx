@@ -1,7 +1,14 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { ArrowUpDown, Printer, Search, Trash2, ImageIcon  } from "lucide-react"
+import {
+  ArrowUpDown,
+  ImageIcon,
+  Pencil,
+  Printer,
+  Search,
+  Trash2,
+} from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
 import {
@@ -132,6 +139,19 @@ const getKeterangan = (log: LogSpp) => {
   return `${bulan} / ${kelas}`
 }
 
+const KODE_AKSES_EDIT_TANGGAL = "123oke"
+
+const toDatetimeLocalValue = (value: string) => {
+  if (!value) return ""
+
+  const date = new Date(value)
+  const pad = (n: number) => String(n).padStart(2, "0")
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export default function LogSppPage() {
   const [user, setUser] = useState<UserLogin | null>(null)
 
@@ -158,6 +178,14 @@ export default function LogSppPage() {
 
   const [openBukti, setOpenBukti] = useState(false)
 const [selectedBukti, setSelectedBukti] = useState<string | null>(null)
+
+  const [openEditTanggal, setOpenEditTanggal] = useState(false)
+  const [editTanggalTarget, setEditTanggalTarget] = useState<LogSpp | null>(
+    null
+  )
+  const [kodeAksesInput, setKodeAksesInput] = useState("")
+  const [tanggalBaru, setTanggalBaru] = useState("")
+  const [savingTanggal, setSavingTanggal] = useState(false)
 
 const openModalBukti = (bukti: string | null | undefined) => {
   if (!bukti) return
@@ -346,6 +374,46 @@ const openModalBukti = (bukti: string | null | undefined) => {
       getLogSpp(page)
     } catch (error: any) {
       alert(error.message || "Gagal menghapus log")
+    }
+  }
+
+  const bukaEditTanggal = (item: LogSpp) => {
+    setEditTanggalTarget(item)
+    setTanggalBaru(toDatetimeLocalValue(item.created_at))
+    setKodeAksesInput("")
+    setOpenEditTanggal(true)
+  }
+
+  const simpanEditTanggal = async () => {
+    if (!editTanggalTarget) return
+
+    if (kodeAksesInput !== KODE_AKSES_EDIT_TANGGAL) {
+      alert("Kode akses salah.")
+      return
+    }
+
+    if (!tanggalBaru) {
+      alert("Tanggal wajib diisi")
+      return
+    }
+
+    setSavingTanggal(true)
+
+    try {
+      await apiFetch(`/spp/updatelog/${editTanggalTarget.id_logspp}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          created_at: new Date(tanggalBaru).toISOString(),
+        }),
+      })
+
+      alert("Tanggal berhasil diperbarui")
+      setOpenEditTanggal(false)
+      getLogSpp(page)
+    } catch (error: any) {
+      alert(error.message || "Gagal memperbarui tanggal")
+    } finally {
+      setSavingTanggal(false)
     }
   }
 
@@ -617,6 +685,15 @@ const openModalBukti = (bukti: string | null | undefined) => {
                             Bukti
                           </Button>
 
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => bukaEditTanggal(item)}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit Tanggal
+                          </Button>
+
                           {canDeleteLogSpp(user) && (
                             <Button
                               size="sm"
@@ -726,6 +803,56 @@ const openModalBukti = (bukti: string | null | undefined) => {
     )}
   </DialogContent>
 </Dialog>
+
+      <Dialog open={openEditTanggal} onOpenChange={setOpenEditTanggal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Tanggal Pembayaran</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Siswa</Label>
+              <Input
+                value={editTanggalTarget?.siswa_ppdb?.nama_lengkap || ""}
+                disabled
+              />
+            </div>
+
+            <div>
+              <Label>Tanggal &amp; Waktu Baru</Label>
+              <Input
+                type="datetime-local"
+                value={tanggalBaru}
+                onChange={(e) => setTanggalBaru(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Kode Akses</Label>
+              <Input
+                type="password"
+                value={kodeAksesInput}
+                onChange={(e) => setKodeAksesInput(e.target.value)}
+                placeholder="Masukkan kode akses"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpenEditTanggal(false)}
+            >
+              Batal
+            </Button>
+
+            <Button onClick={simpanEditTanggal} disabled={savingTanggal}>
+              {savingTanggal ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
