@@ -406,11 +406,33 @@ const openModalBukti = (bukti: string | null | undefined) => {
   }
 
   useEffect(() => {
-    if (laporanData.length === 0) return
+    if (laporanData.length === 0 || !laporanRange) return
+
+    // document.title dipakai browser sebagai nama file default pas "Save as
+    // PDF" di dialog print - diganti sementara biar nama filenya ikut
+    // rentang tanggal laporan, bukan judul aplikasi yang generik.
+    const originalTitle = document.title
+    const namaFile = `Laporan-SPP_${laporanRange.start.split("-").reverse().join("-")}_sd_${laporanRange.end
+      .split("-")
+      .reverse()
+      .join("-")}`
+
+    document.title = namaFile
+
+    const restoreTitle = () => {
+      document.title = originalTitle
+    }
+
+    window.addEventListener("afterprint", restoreTitle)
 
     const timer = setTimeout(() => window.print(), 150)
-    return () => clearTimeout(timer)
-  }, [laporanData])
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener("afterprint", restoreTitle)
+      document.title = originalTitle
+    }
+  }, [laporanData, laporanRange])
 
   const formatTanggalSingkat = (value: string) => {
     if (!value) return "-"
