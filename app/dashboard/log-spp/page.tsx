@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import {
   ArrowUpDown,
   ImageIcon,
@@ -175,6 +176,12 @@ export default function LogSppPage() {
   const [openPrint, setOpenPrint] = useState(false)
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [loadingLaporan, setLoadingLaporan] = useState(false)
+  const [laporanData, setLaporanData] = useState<LogSpp[]>([])
+  const [laporanRange, setLaporanRange] = useState<{
+    start: string
+    end: string
+  } | null>(null)
 
   const [openBukti, setOpenBukti] = useState(false)
 const [selectedBukti, setSelectedBukti] = useState<string | null>(null)
@@ -342,16 +349,88 @@ const openModalBukti = (bukti: string | null | undefined) => {
     setOpenPrint(true)
   }
 
-  const printLaporan = () => {
+  const getTanggalLokal = (value: string) => {
+    // created_at dari backend formatnya "YYYY-MM-DD HH:mm:ss" (bukan ISO
+    // UTC) - ambil 10 karakter pertama langsung, jangan di-parse ulang
+    // lewat `new Date()` supaya tidak salah hari kalau berubah ke format
+    // ISO+Z (bisa geser tanggal akibat konversi timezone).
+    return value.slice(0, 10)
+  }
+
+  const printLaporan = async () => {
     if (!startDate || !endDate) {
       alert("Tanggal awal dan akhir wajib diisi")
       return
     }
 
-    const url = `https://sakuci.id/rekapharianspp?start_date=${startDate}&end_date=${endDate}`
-    window.open(url, "_blank")
-    setOpenPrint(false)
+    setLoadingLaporan(true)
+
+    try {
+      // Filter tanggal dilakukan di frontend (bukan backend) - endpoint
+      // /spp/log diambil apa adanya lalu disaring created_at-nya di sini,
+      // supaya fitur ini tidak bergantung pada deploy backend.
+      const params = new URLSearchParams()
+      params.set("limit", "100000")
+
+      const res = await apiFetch(`/spp/log?${params.toString()}`)
+      const semuaRows: LogSpp[] = res?.data || []
+
+      const rows = semuaRows.filter((item) => {
+        const tanggal = getTanggalLokal(item.created_at)
+        return tanggal >= startDate && tanggal <= endDate
+      })
+
+      if (rows.length === 0) {
+        alert("Tidak ada transaksi pada rentang tanggal tersebut")
+        return
+      }
+
+      setLaporanRange({ start: startDate, end: endDate })
+      setLaporanData(rows)
+      setOpenPrint(false)
+    } catch (error: any) {
+      alert(error.message || "Gagal mengambil data laporan")
+    } finally {
+      setLoadingLaporan(false)
+    }
   }
+
+  useEffect(() => {
+    if (laporanData.length === 0) return
+
+    const timer = setTimeout(() => window.print(), 150)
+    return () => clearTimeout(timer)
+  }, [laporanData])
+
+  const formatTanggalSingkat = (value: string) => {
+    if (!value) return "-"
+
+    return new Date(value).toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+  }
+
+  const laporanSortedData = useMemo(() => {
+    return [...laporanData].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+  }, [laporanData])
+
+  const laporanTotalTrf = laporanData
+    .filter((item) => item.bayar === "trf")
+    .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
+
+  const laporanTotalCash = laporanData
+    .filter((item) => item.bayar === "csh")
+    .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
+
+  const laporanTotalSbs = laporanData
+    .filter((item) => item.bayar === "sbs")
+    .reduce((sum, item) => sum + Number(item.nominal || 0), 0)
+
+  const laporanTotalKeseluruhan = laporanTotalTrf + laporanTotalCash
 
   const printBukti = (id_logspp: string) => {
     window.open(`https://sakuci.id/${id_logspp}/sppsiswa`, "_blank")
@@ -426,6 +505,42 @@ const openModalBukti = (bukti: string | null | undefined) => {
 
   return (
     <div className="space-y-6">
+      <style jsx global>{`
+        @media print {
+          body > *:not(#print-area-laporan-spp) {
+            display: none !important;
+          }
+
+          #print-area-laporan-spp {
+            width: 100%;
+            background: white !important;
+            padding: 8px;
+            color: #000 !important;
+          }
+
+          #print-area-laporan-spp * {
+            color: #000 !important;
+            background-color: transparent !important;
+          }
+
+          #print-area-laporan-spp table {
+            font-size: 10px;
+            width: 100%;
+          }
+
+          #print-area-laporan-spp th,
+          #print-area-laporan-spp td {
+            padding: 2px 4px !important;
+            line-height: 1.2 !important;
+          }
+
+          @page {
+            size: A4 portrait;
+            margin: 8mm;
+          }
+        }
+      `}</style>
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Log Pembayaran SPP</h1>
@@ -770,9 +885,9 @@ const openModalBukti = (bukti: string | null | undefined) => {
               Batal
             </Button>
 
-            <Button onClick={printLaporan}>
+            <Button onClick={printLaporan} disabled={loadingLaporan}>
               <Printer className="w-4 h-4 mr-2" />
-              Buka Laporan
+              {loadingLaporan ? "Menyiapkan..." : "Buka Laporan"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -853,6 +968,84 @@ const openModalBukti = (bukti: string | null | undefined) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {laporanData.length > 0 &&
+        laporanRange &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div id="print-area-laporan-spp" className="hidden print:block">
+            <div className="flex items-center gap-3 border-b-2 border-black pb-1 mb-2">
+              <img
+                src="/logo.png"
+                alt="Logo Sekolah"
+                className="h-12 w-12 object-contain"
+              />
+              <div className="flex-1 text-center">
+                <p className="font-bold text-base">SMK SANGKURIANG 1 CIMAHI</p>
+                <p className="text-xs">
+                  Laporan Pembayaran SPP - Periode{" "}
+                  {formatTanggalSingkat(laporanRange.start)} s/d{" "}
+                  {formatTanggalSingkat(laporanRange.end)}
+                </p>
+              </div>
+            </div>
+
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="border border-black px-2 py-1 text-left">No</th>
+                  <th className="border border-black px-2 py-1 text-left">Nama Siswa</th>
+                  <th className="border border-black px-2 py-1 text-left">Kelas</th>
+                  <th className="border border-black px-2 py-1 text-left">Nominal</th>
+                  <th className="border border-black px-2 py-1 text-left">Tanggal Bayar</th>
+                  <th className="border border-black px-2 py-1 text-left">Keterangan</th>
+                  <th className="border border-black px-2 py-1 text-left">Metode</th>
+                </tr>
+              </thead>
+              <tbody>
+                {laporanSortedData.map((item, index) => {
+                  const namaKelas = item.siswa_ppdb?.kelas_terkini?.nama_kelas || "-"
+                  const tingkatSiswa =
+                    item.siswa_ppdb?.kelas_terkini?.tingkat || item.kelas || "-"
+
+                  return (
+                    <tr key={item.id_logspp}>
+                      <td className="border border-black px-2 py-1">{index + 1}</td>
+                      <td className="border border-black px-2 py-1">
+                        {item.siswa_ppdb?.nama_lengkap || "-"}
+                      </td>
+                      <td className="border border-black px-2 py-1">
+                        {tingkatSiswa} {namaKelas}
+                      </td>
+                      <td className="border border-black px-2 py-1">
+                        {formatRupiah(item.nominal)}
+                      </td>
+                      <td className="border border-black px-2 py-1">
+                        {formatTanggal(item.created_at)}
+                      </td>
+                      <td className="border border-black px-2 py-1">
+                        {getKeterangan(item)}
+                      </td>
+                      <td className="border border-black px-2 py-1">
+                        {bayarLabel[item.bayar] || item.bayar}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            <div className="mt-2 text-xs space-y-0.5">
+              <p>Transfer: {formatRupiah(laporanTotalTrf)}</p>
+              <p>Cash: {formatRupiah(laporanTotalCash)}</p>
+              <p>Dibebaskan: {formatRupiah(laporanTotalSbs)}</p>
+              <p className="font-semibold">
+                Total (Transfer + Cash): {formatRupiah(laporanTotalKeseluruhan)}
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
