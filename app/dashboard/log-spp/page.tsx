@@ -194,6 +194,7 @@ const [selectedBukti, setSelectedBukti] = useState<string | null>(null)
   )
   const [kodeAksesInput, setKodeAksesInput] = useState("")
   const [tanggalBaru, setTanggalBaru] = useState("")
+  const [bayarBaru, setBayarBaru] = useState<"csh" | "trf" | "sbs">("csh")
   const [savingTanggal, setSavingTanggal] = useState(false)
 
 const openModalBukti = (bukti: string | null | undefined) => {
@@ -491,6 +492,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
   const bukaEditTanggal = (item: LogSpp) => {
     setEditTanggalTarget(item)
     setTanggalBaru(toDatetimeLocalValue(item.created_at))
+    setBayarBaru(item.bayar)
     setKodeAksesInput("")
     setOpenEditTanggal(true)
   }
@@ -515,14 +517,15 @@ const openModalBukti = (bukti: string | null | undefined) => {
         method: "PUT",
         body: JSON.stringify({
           created_at: new Date(tanggalBaru).toISOString(),
+          bayar: bayarBaru,
         }),
       })
 
-      alert("Tanggal berhasil diperbarui")
+      alert("Data berhasil diperbarui")
       setOpenEditTanggal(false)
       getLogSpp(page)
     } catch (error: any) {
-      alert(error.message || "Gagal memperbarui tanggal")
+      alert(error.message || "Gagal memperbarui data")
     } finally {
       setSavingTanggal(false)
     }
@@ -871,7 +874,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
                             onClick={() => bukaEditTanggal(item)}
                           >
                             <Pencil className="w-4 h-4 mr-2" />
-                            Edit Tanggal
+                            Edit
                           </Button>
 
                           {canDeleteLogSpp(user) && (
@@ -987,7 +990,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
       <Dialog open={openEditTanggal} onOpenChange={setOpenEditTanggal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Tanggal Pembayaran</DialogTitle>
+            <DialogTitle>Edit Log Pembayaran</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -1006,6 +1009,25 @@ const openModalBukti = (bukti: string | null | undefined) => {
                 value={tanggalBaru}
                 onChange={(e) => setTanggalBaru(e.target.value)}
               />
+            </div>
+
+            <div>
+              <Label>Status Pembayaran</Label>
+              <Select
+                value={bayarBaru}
+                onValueChange={(value) =>
+                  setBayarBaru(value as "csh" | "trf" | "sbs")
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih status pembayaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csh">Cash</SelectItem>
+                  <SelectItem value="trf">Transfer</SelectItem>
+                  <SelectItem value="sbs">Dibebaskan</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
