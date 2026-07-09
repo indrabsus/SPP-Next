@@ -35,6 +35,7 @@ import {
   UserLogin,
 } from "@/lib/auth"
 
+import { startTopLoader } from "@/components/top-loader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -322,7 +323,12 @@ export default function DashboardPage() {
             Refresh
           </Button>
 
-          <Button onClick={() => router.push("/dashboard/pembayaran")}>
+          <Button
+            onClick={() => {
+              startTopLoader()
+              router.push("/dashboard/pembayaran")
+            }}
+          >
             Buka Pembayaran
           </Button>
         </div>

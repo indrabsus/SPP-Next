@@ -28,6 +28,7 @@ import {
 } from "@/lib/auth"
 
 import { ThemeToggle } from "@/components/theme-toggle"
+import { startTopLoader } from "@/components/top-loader"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -127,6 +128,7 @@ export default function DashboardLayout({
   const contentPadding = collapsed ? "md:pl-20" : "md:pl-72"
 
   const handleLogout = () => {
+    startTopLoader()
     logout()
     router.push("/")
   }
@@ -240,17 +242,18 @@ export default function DashboardLayout({
               <button
                 key={menu.href}
                 onClick={() => {
+                  if (!active) startTopLoader()
                   router.push(menu.href)
                   setMobileOpen(false)
                 }}
                 title={collapsed ? menu.title : undefined}
                 className={`
-                  group relative w-full flex cursor-pointer items-center rounded-xl px-3 py-2.5 text-sm transition
+                  group relative w-full flex cursor-pointer items-center rounded-xl px-3 py-2.5 text-sm transition-colors duration-150
                   ${collapsed ? "md:justify-center" : "justify-start gap-3"}
                   ${
                     active
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "hover:bg-slate-100 dark:hover:bg-slate-900 text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
                   }
                 `}
               >
@@ -354,7 +357,10 @@ export default function DashboardLayout({
                 <DropdownMenuSeparator />
 
                 <DropdownMenuItem
-                  onClick={() => router.push("/dashboard/ubah-password")}
+                  onClick={() => {
+                    startTopLoader()
+                    router.push("/dashboard/ubah-password")
+                  }}
                 >
                   <KeyRound className="w-4 h-4 mr-2" />
                   Ubah Password

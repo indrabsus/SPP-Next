@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api"
 import { isAllowedKeuanganUser, saveAuth } from "@/lib/auth"
 
 import { ThemeToggle } from "@/components/theme-toggle"
+import { startTopLoader } from "@/components/top-loader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -52,6 +53,7 @@ export default function LoginPage() {
 
       saveAuth(res.token, loginUser)
 
+      startTopLoader()
       router.push("/dashboard")
     } catch (error: any) {
       alert(error.message || "Login gagal")
