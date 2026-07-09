@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScrollText,
+  Settings,
   Wallet,
   X,
 } from "lucide-react"
@@ -64,7 +65,13 @@ const allMenus = [
     icon: FileText,
     adminOnly: true,
   },
-  
+  {
+    title: "Master SPP",
+    href: "/dashboard/master-spp",
+    icon: Settings,
+    adminOnly: true,
+  },
+
   {
     title: "Ubah Password",
     href: "/dashboard/ubah-password",

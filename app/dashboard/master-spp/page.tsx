@@ -1,7 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Edit, Loader2, Save, Search, Trash2 } from "lucide-react"
+import {
+  Briefcase,
+  Edit,
+  FileCheck2,
+  GraduationCap,
+  Inbox,
+  Loader2,
+  Repeat2,
+  Save,
+  Search,
+  Trash2,
+} from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
 
@@ -14,6 +25,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type MasterSpp = {
   id_spp: string
@@ -29,13 +48,32 @@ type MasterSpp = {
   updated_at?: string
 }
 
+type FormKey =
+  | "spp10"
+  | "spp11"
+  | "spp12"
+  | "daftar_ulang_11"
+  | "daftar_ulang_12"
+  | "pkl"
+  | "ujian_akhir"
+
+const fieldConfig: { key: FormKey; label: string; icon: typeof GraduationCap }[] = [
+  { key: "spp10", label: "SPP Kelas 10", icon: GraduationCap },
+  { key: "spp11", label: "SPP Kelas 11", icon: GraduationCap },
+  { key: "spp12", label: "SPP Kelas 12", icon: GraduationCap },
+  { key: "daftar_ulang_11", label: "Daftar Ulang Kelas 11", icon: Repeat2 },
+  { key: "daftar_ulang_12", label: "Daftar Ulang Kelas 12", icon: Repeat2 },
+  { key: "pkl", label: "PKL", icon: Briefcase },
+  { key: "ujian_akhir", label: "Ujian Akhir", icon: FileCheck2 },
+]
+
 const tahunSekarang = new Date().getFullYear()
 
 const formatRupiah = (value: number | string) => {
   return `Rp ${Number(value || 0).toLocaleString("id-ID")}`
 }
 
-const initialForm = {
+const initialForm: Record<FormKey, string> = {
   spp10: "",
   spp11: "",
   spp12: "",
@@ -52,7 +90,10 @@ export default function MasterSppPage() {
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [modeEdit, setModeEdit] = useState(false)
+  const [sudahCari, setSudahCari] = useState(false)
+
+  const [openForm, setOpenForm] = useState(false)
+  const [openHapus, setOpenHapus] = useState(false)
 
   const isiForm = (item: MasterSpp) => {
     setForm({
@@ -64,11 +105,6 @@ export default function MasterSppPage() {
       pkl: String(item.pkl || ""),
       ujian_akhir: String(item.ujian_akhir || ""),
     })
-  }
-
-  const resetForm = () => {
-    setForm(initialForm)
-    setModeEdit(false)
   }
 
   const getMaster = async () => {
@@ -84,17 +120,13 @@ export default function MasterSppPage() {
 
       if (res.data) {
         setData(res.data)
-        isiForm(res.data)
-        setModeEdit(false)
       } else {
         setData(null)
-        resetForm()
       }
     } catch (error: any) {
       setData(null)
-      resetForm()
-      alert(error.message || "Data master SPP tidak ditemukan")
     } finally {
+      setSudahCari(true)
       setLoading(false)
     }
   }
@@ -104,7 +136,7 @@ export default function MasterSppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleChange = (key: keyof typeof initialForm, value: string) => {
+  const handleChange = (key: FormKey, value: string) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
@@ -112,24 +144,9 @@ export default function MasterSppPage() {
   }
 
   const validasiForm = () => {
-    if (!tahun) {
-      alert("Tahun wajib diisi")
-      return false
-    }
-
-    const wajib = [
-      "spp10",
-      "spp11",
-      "spp12",
-      "daftar_ulang_11",
-      "daftar_ulang_12",
-      "pkl",
-      "ujian_akhir",
-    ] as const
-
-    for (const key of wajib) {
+    for (const { key, label } of fieldConfig) {
       if (form[key] === "" || Number(form[key]) < 0) {
-        alert(`Field ${key} wajib diisi dengan nominal valid`)
+        alert(`${label} wajib diisi dengan nominal valid`)
         return false
       }
     }
@@ -137,19 +154,29 @@ export default function MasterSppPage() {
     return true
   }
 
-  const payload = {
-    tahun: Number(tahun),
-    spp10: Number(form.spp10 || 0),
-    spp11: Number(form.spp11 || 0),
-    spp12: Number(form.spp12 || 0),
-    daftar_ulang_11: Number(form.daftar_ulang_11 || 0),
-    daftar_ulang_12: Number(form.daftar_ulang_12 || 0),
-    pkl: Number(form.pkl || 0),
-    ujian_akhir: Number(form.ujian_akhir || 0),
+  const bukaTambah = () => {
+    setForm(initialForm)
+    setOpenForm(true)
+  }
+
+  const bukaEdit = () => {
+    if (data) isiForm(data)
+    setOpenForm(true)
   }
 
   const simpanMaster = async () => {
     if (!validasiForm()) return
+
+    const payload = {
+      tahun: Number(tahun),
+      spp10: Number(form.spp10 || 0),
+      spp11: Number(form.spp11 || 0),
+      spp12: Number(form.spp12 || 0),
+      daftar_ulang_11: Number(form.daftar_ulang_11 || 0),
+      daftar_ulang_12: Number(form.daftar_ulang_12 || 0),
+      pkl: Number(form.pkl || 0),
+      ujian_akhir: Number(form.ujian_akhir || 0),
+    }
 
     setSaving(true)
 
@@ -170,8 +197,8 @@ export default function MasterSppPage() {
         alert("Master SPP berhasil dibuat")
       }
 
+      setOpenForm(false)
       await getMaster()
-      setModeEdit(false)
     } catch (error: any) {
       alert(error.message || "Gagal menyimpan master SPP")
     } finally {
@@ -182,12 +209,6 @@ export default function MasterSppPage() {
   const hapusMaster = async () => {
     if (!data?.id_spp) return
 
-    const yakin = window.confirm(
-      `Yakin ingin menghapus master SPP tahun ${data.tahun}?`
-    )
-
-    if (!yakin) return
-
     setSaving(true)
 
     try {
@@ -196,17 +217,14 @@ export default function MasterSppPage() {
       })
 
       alert("Master SPP berhasil dihapus")
-
+      setOpenHapus(false)
       setData(null)
-      resetForm()
     } catch (error: any) {
       alert(error.message || "Gagal menghapus master SPP")
     } finally {
       setSaving(false)
     }
   }
-
-  const disabledForm = Boolean(data) && !modeEdit
 
   return (
     <div className="space-y-6">
@@ -231,6 +249,9 @@ export default function MasterSppPage() {
                 value={tahun}
                 onChange={(e) => setTahun(e.target.value)}
                 placeholder="Contoh: 2026"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") getMaster()
+                }}
               />
             </div>
 
@@ -248,182 +269,157 @@ export default function MasterSppPage() {
         </CardContent>
       </Card>
 
-      <Card className="dashboard-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>
-            {data
-              ? `Data Master Tahun ${data.tahun}`
-              : `Buat Master Tahun ${tahun || "-"}`}
-          </CardTitle>
+      {loading ? (
+        <Card className="dashboard-card">
+          <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            Memuat data...
+          </CardContent>
+        </Card>
+      ) : data ? (
+        <Card className="dashboard-card">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Master SPP Tahun {data.tahun}</CardTitle>
 
-          <div className="flex gap-2">
-            {data && !modeEdit && (
-              <Button variant="outline" onClick={() => setModeEdit(true)}>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={bukaEdit}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
-            )}
 
-            {data && (
               <Button
                 variant="destructive"
-                onClick={hapusMaster}
-                disabled={saving}
+                size="sm"
+                onClick={() => setOpenHapus(true)}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Hapus
               </Button>
-            )}
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {data && !modeEdit && (
-            <div className="rounded-xl bg-muted p-4 text-sm">
-              Master SPP tahun <b>{data.tahun}</b> sudah tersedia. Klik tombol{" "}
-              <b>Edit</b> untuk mengubah nominal.
             </div>
-          )}
+          </CardHeader>
 
-          {!data && (
-            <div className="rounded-xl bg-muted p-4 text-sm">
-              Master SPP untuk tahun <b>{tahun || "-"}</b> belum ada. Isi form
-              di bawah untuk membuat master baru.
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label>SPP Kelas 10</Label>
-              <Input
-                type="number"
-                disabled={disabledForm}
-                value={form.spp10}
-                onChange={(e) => handleChange("spp10", e.target.value)}
-                placeholder="Contoh: 170000"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatRupiah(form.spp10)}
-              </p>
-            </div>
-
-            <div>
-              <Label>SPP Kelas 11</Label>
-              <Input
-                type="number"
-                disabled={disabledForm}
-                value={form.spp11}
-                onChange={(e) => handleChange("spp11", e.target.value)}
-                placeholder="Contoh: 210000"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatRupiah(form.spp11)}
-              </p>
-            </div>
-
-            <div>
-              <Label>SPP Kelas 12</Label>
-              <Input
-                type="number"
-                disabled={disabledForm}
-                value={form.spp12}
-                onChange={(e) => handleChange("spp12", e.target.value)}
-                placeholder="Contoh: 250000"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatRupiah(form.spp12)}
-              </p>
-            </div>
-
-            <div>
-              <Label>Daftar Ulang Kelas 11</Label>
-              <Input
-                type="number"
-                disabled={disabledForm}
-                value={form.daftar_ulang_11}
-                onChange={(e) =>
-                  handleChange("daftar_ulang_11", e.target.value)
-                }
-                placeholder="Contoh: 310000"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatRupiah(form.daftar_ulang_11)}
-              </p>
-            </div>
-
-            <div>
-              <Label>Daftar Ulang Kelas 12</Label>
-              <Input
-                type="number"
-                disabled={disabledForm}
-                value={form.daftar_ulang_12}
-                onChange={(e) =>
-                  handleChange("daftar_ulang_12", e.target.value)
-                }
-                placeholder="Contoh: 300000"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatRupiah(form.daftar_ulang_12)}
-              </p>
-            </div>
-
-            <div>
-              <Label>PKL</Label>
-              <Input
-                type="number"
-                disabled={disabledForm}
-                value={form.pkl}
-                onChange={(e) => handleChange("pkl", e.target.value)}
-                placeholder="Contoh: 500000"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatRupiah(form.pkl)}
-              </p>
-            </div>
-
-            <div>
-              <Label>Ujian Akhir</Label>
-              <Input
-                type="number"
-                disabled={disabledForm}
-                value={form.ujian_akhir}
-                onChange={(e) =>
-                  handleChange("ujian_akhir", e.target.value)
-                }
-                placeholder="Contoh: 700000"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatRupiah(form.ujian_akhir)}
-              </p>
-            </div>
-          </div>
-
-          {(!data || modeEdit) && (
-            <div className="flex gap-2">
-              <Button onClick={simpanMaster} disabled={saving}>
-                {saving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                {data ? "Update Master" : "Simpan Master"}
-              </Button>
-
-              {data && modeEdit && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    isiForm(data)
-                    setModeEdit(false)
-                  }}
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {fieldConfig.map(({ key, label, icon: Icon }) => (
+                <div
+                  key={key}
+                  className="flex items-center gap-3 rounded-xl border bg-muted/30 p-3"
                 >
-                  Batal
-                </Button>
-              )}
+                  <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
+                    <Icon className="w-5 h-5" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground truncate">
+                      {label}
+                    </p>
+                    <p className="font-semibold truncate">
+                      {formatRupiah(data[key])}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        sudahCari && (
+          <Card className="dashboard-card">
+            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <div className="rounded-full bg-muted p-3 text-muted-foreground">
+                <Inbox className="w-6 h-6" />
+              </div>
+
+              <div>
+                <p className="font-medium">
+                  Master SPP tahun {tahun || "-"} belum ada
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Buat master baru untuk mengatur nominal tahun ini.
+                </p>
+              </div>
+
+              <Button onClick={bukaTambah}>Tambah Master Tahun {tahun}</Button>
+            </CardContent>
+          </Card>
+        )
+      )}
+
+      <Dialog open={openForm} onOpenChange={setOpenForm}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {data ? `Edit Master SPP Tahun ${data.tahun}` : `Tambah Master SPP Tahun ${tahun}`}
+            </DialogTitle>
+            <DialogDescription>
+              Isi nominal untuk setiap kategori pembayaran di bawah ini.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {fieldConfig.map(({ key, label }) => (
+              <div key={key}>
+                <Label>{label}</Label>
+                <Input
+                  type="number"
+                  value={form[key]}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  placeholder="0"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatRupiah(form[key])}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenForm(false)}>
+              Batal
+            </Button>
+
+            <Button onClick={simpanMaster} disabled={saving}>
+              {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {data ? "Update Master" : "Simpan Master"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openHapus} onOpenChange={setOpenHapus}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus Master SPP</DialogTitle>
+            <DialogDescription>
+              Yakin ingin menghapus master SPP tahun {data?.tahun}? Tindakan
+              ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenHapus(false)}>
+              Batal
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={hapusMaster}
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
