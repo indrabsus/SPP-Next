@@ -245,7 +245,7 @@ export default function DashboardLayout({
                 }}
                 title={collapsed ? menu.title : undefined}
                 className={`
-                  group relative w-full flex items-center rounded-xl px-3 py-2.5 text-sm transition
+                  group relative w-full flex cursor-pointer items-center rounded-xl px-3 py-2.5 text-sm transition
                   ${collapsed ? "md:justify-center" : "justify-start gap-3"}
                   ${
                     active
@@ -330,7 +330,7 @@ export default function DashboardLayout({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-full hover:bg-muted p-1">
+                <button className="flex cursor-pointer items-center gap-2 rounded-full hover:bg-muted p-1">
                   <Avatar>
                     <AvatarFallback>
                       {user.username?.slice(0, 2).toUpperCase()}
