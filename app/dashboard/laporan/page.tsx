@@ -111,6 +111,42 @@ const extraTagihanOptions: {
   { key: "ujian", label: "Tunggakan Ujian Akhir" },
 ]
 
+const bulanTagihan = [
+  { value: "1", label: "Juli" },
+  { value: "2", label: "Agustus" },
+  { value: "3", label: "September" },
+  { value: "4", label: "Oktober" },
+  { value: "5", label: "November" },
+  { value: "6", label: "Desember" },
+  { value: "7", label: "Januari" },
+  { value: "8", label: "Februari" },
+  { value: "9", label: "Maret" },
+  { value: "10", label: "April" },
+  { value: "11", label: "Mei" },
+  { value: "12", label: "Juni" },
+]
+
+const getBulanSekarangSpp = () => {
+  const bulan = new Date().getMonth() + 1
+
+  const mapping: Record<number, string> = {
+    7: "1",
+    8: "2",
+    9: "3",
+    10: "4",
+    11: "5",
+    12: "6",
+    1: "7",
+    2: "8",
+    3: "9",
+    4: "10",
+    5: "11",
+    6: "12",
+  }
+
+  return mapping[bulan] || "1"
+}
+
 const formatRupiah = (value: number) => {
   return `Rp ${Number(value || 0).toLocaleString("id-ID")}`
 }
@@ -118,10 +154,6 @@ const formatRupiah = (value: number) => {
 const toNumber = (value: any) => {
   if (!value) return 0
   return Number(String(value).replace(/\D/g, "")) || 0
-}
-
-const isUangMasuk = (bayar?: string) => {
-  return bayar === "csh" || bayar === "trf"
 }
 
 export default function LaporanPage() {
@@ -132,6 +164,7 @@ export default function LaporanPage() {
   const [tahunAjaran, setTahunAjaran] = useState("")
   const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
   const [keyword, setKeyword] = useState("")
+  const [bulanFilter, setBulanFilter] = useState(getBulanSekarangSpp())
 
   const [kelas, setKelas] = useState<Kelas[]>([])
   const [siswa, setSiswa] = useState<Siswa[]>([])
@@ -358,23 +391,6 @@ export default function LaporanPage() {
     )
   }
 
-  const getTotalUangMasukByStatus = (
-    item: Siswa,
-    status: string,
-    kelasTagihan?: number
-  ) => {
-    return (
-      item.log_spp
-        ?.filter((log) => {
-          if (log.status !== status) return false
-          if (!isUangMasuk(log.bayar)) return false
-          if (kelasTagihan) return Number(log.kelas) === kelasTagihan
-          return true
-        })
-        .reduce((total, log) => total + Number(log.nominal || 0), 0) || 0
-    )
-  }
-
   const getTotalDibebaskanByStatus = (
     item: Siswa,
     status: string,
@@ -397,18 +413,13 @@ export default function LaporanPage() {
     return getTotalBayarByStatus(item, "spp", tingkatSiswa)
   }
 
-  const getTotalUangMasukSpp = (item: Siswa) => {
-    const tingkatSiswa = Number(getTingkatSiswa(item))
-    return getTotalUangMasukByStatus(item, "spp", tingkatSiswa)
-  }
-
   const getTotalDibebaskanSpp = (item: Siswa) => {
     const tingkatSiswa = Number(getTingkatSiswa(item))
     return getTotalDibebaskanByStatus(item, "spp", tingkatSiswa)
   }
 
   const getTotalTagihanSpp = (item: Siswa) => {
-    return getNominalSpp(item) * 12
+    return getNominalSpp(item) * Number(bulanFilter)
   }
 
   const getTunggakanSpp = (item: Siswa) => {
@@ -528,7 +539,6 @@ export default function LaporanPage() {
         sppBulanan: getNominalSpp(item),
         totalTagihanSpp: getTotalTagihanSpp(item),
         totalBayarSpp: getTotalBayarSpp(item),
-        totalUangMasukSpp: getTotalUangMasukSpp(item),
         dibebaskan,
         tunggakanSpp,
         ppdb,
@@ -542,7 +552,7 @@ export default function LaporanPage() {
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siswa, masterSpp, masterPpdb, showPpdb, extraTagihan])
+  }, [siswa, masterSpp, masterPpdb, showPpdb, extraTagihan, bulanFilter])
 
   const summary = useMemo(() => {
     return laporan.reduce(
@@ -550,7 +560,6 @@ export default function LaporanPage() {
         acc.totalSiswa += 1
         acc.totalTagihanSpp += item.totalTagihanSpp
         acc.totalBayarSpp += item.totalBayarSpp
-        acc.totalUangMasukSpp += item.totalUangMasukSpp
         acc.dibebaskan += item.dibebaskan
         acc.tunggakanSpp += item.tunggakanSpp
         acc.ppdb += item.ppdb
@@ -568,7 +577,6 @@ export default function LaporanPage() {
         totalSiswa: 0,
         totalTagihanSpp: 0,
         totalBayarSpp: 0,
-        totalUangMasukSpp: 0,
         dibebaskan: 0,
         tunggakanSpp: 0,
         ppdb: 0,
@@ -584,13 +592,16 @@ export default function LaporanPage() {
   }, [laporan])
 
   const jumlahKolom =
-    9 +
+    8 +
     (showPpdb ? 1 : 0) +
     Object.values(extraTagihan).filter(Boolean).length
 
   const printPdf = () => {
     window.print()
   }
+
+  const labelBulanFilter =
+    bulanTagihan.find((item) => item.value === bulanFilter)?.label || "-"
 
   if (!user) return null
 
@@ -612,56 +623,68 @@ export default function LaporanPage() {
             left: 0;
             top: 0;
             width: 100%;
-            background: white;
+            background: white !important;
             padding: 12px;
+            color: #000 !important;
+          }
+
+          /* Paksa teks hitam biar tetap kebaca walau lagi dark mode. */
+          #print-area * {
+            color: #000 !important;
+            background-color: transparent !important;
           }
 
           .no-print {
             display: none !important;
           }
 
-          .print-compact-grid {
-            display: grid !important;
-            grid-template-columns: repeat(6, 1fr) !important;
-            gap: 6px !important;
-            margin-bottom: 8px !important;
+          /* Rapatkan jarak antar section (kop, ringkasan, tabel, rincian)
+             supaya tidak makan halaman percuma. */
+          #print-area > * + * {
+            margin-top: 3px !important;
           }
 
-          .print-compact-card {
-            border: 1px solid #ccc !important;
-            padding: 6px !important;
-            box-shadow: none !important;
+          .print-tight-card {
+            padding: 3px !important;
+            gap: 3px !important;
             border-radius: 4px !important;
+            box-shadow: none !important;
           }
 
-          .print-compact-card div {
-            padding: 0 !important;
+          .print-tight-card [data-slot="card-header"],
+          .print-tight-card [data-slot="card-content"] {
+            padding: 2px 6px !important;
           }
 
-          .print-compact-title {
-            font-size: 10px !important;
-            color: #444 !important;
-            margin-bottom: 2px !important;
-          }
-
-          .print-compact-value {
+          .print-tight-card [data-slot="card-title"] {
             font-size: 11px !important;
-            font-weight: 700 !important;
-            margin: 0 !important;
+          }
+
+          /* Rincian per kolom tunggakan (Ringkasan Kolom Aktif) - tetap
+             ditampilkan lengkap, cuma kotaknya dirapatkan. */
+          .print-detail-grid {
+            gap: 3px !important;
+          }
+
+          .print-detail-item {
+            padding: 2px 6px !important;
+            border-radius: 3px !important;
           }
 
           table {
-            font-size: 9px;
+            font-size: 7px;
           }
 
           th,
           td {
-            padding: 3px 4px !important;
+            height: auto !important;
+            padding: 1px 3px !important;
+            line-height: 1.1 !important;
           }
 
           @page {
             size: A4 landscape;
-            margin: 8mm;
+            margin: 5mm;
           }
         }
       `}</style>
@@ -749,6 +772,22 @@ export default function LaporanPage() {
               />
             </div>
 
+            <div>
+              <Label>Bulan Tagihan SPP</Label>
+              <Select value={bulanFilter} onValueChange={setBulanFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih bulan tagihan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bulanTagihan.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex items-end">
               <Button className="w-full" onClick={getLaporan} disabled={loading}>
                 <Search className="w-4 h-4 mr-2" />
@@ -801,93 +840,16 @@ export default function LaporanPage() {
       </Card>
 
       <div id="print-area" className="space-y-6">
-        <div className="hidden print:block text-center space-y-1">
-          <h1 className="text-xl font-bold">LAPORAN KEUANGAN SISWA</h1>
-          <p>Kelas: {laporan[0]?.kelas || "-"}</p>
-          <p>Tanggal Cetak: {new Date().toLocaleDateString("id-ID")}</p>
+        <div className="hidden print:block text-center leading-tight">
+          <h1 className="text-sm font-bold">LAPORAN KEUANGAN SISWA</h1>
+          <p className="text-[9px]">
+            Kelas: {laporan[0]?.kelas || "-"} · Tunggakan SPP s.d. Bulan:{" "}
+            {labelBulanFilter} · Tanggal Cetak:{" "}
+            {new Date().toLocaleDateString("id-ID")}
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 print-compact-grid">
-          <Card className="print-compact-card dashboard-card">
-            <CardHeader className="print:p-0">
-              <CardTitle className="text-sm text-muted-foreground print-compact-title">
-                Total Siswa
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="print:p-0">
-              <p className="text-2xl font-bold print-compact-value">
-                {summary.totalSiswa}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="print-compact-card dashboard-card">
-            <CardHeader className="print:p-0">
-              <CardTitle className="text-sm text-muted-foreground print-compact-title">
-                Tagihan SPP
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="print:p-0">
-              <p className="text-2xl font-bold print-compact-value">
-                {formatRupiah(summary.totalTagihanSpp)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="print-compact-card dashboard-card">
-            <CardHeader className="print:p-0">
-              <CardTitle className="text-sm text-muted-foreground print-compact-title">
-                Bayar SPP
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="print:p-0">
-              <p className="text-2xl font-bold print-compact-value">
-                {formatRupiah(summary.totalBayarSpp)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="print-compact-card dashboard-card">
-            <CardHeader className="print:p-0">
-              <CardTitle className="text-sm text-muted-foreground print-compact-title">
-                Uang Masuk
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="print:p-0">
-              <p className="text-2xl font-bold text-emerald-600 print-compact-value">
-                {formatRupiah(summary.totalUangMasukSpp)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="print-compact-card dashboard-card">
-            <CardHeader className="print:p-0">
-              <CardTitle className="text-sm text-muted-foreground print-compact-title">
-                Dibebaskan
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="print:p-0">
-              <p className="text-2xl font-bold text-amber-600 print-compact-value">
-                {formatRupiah(summary.dibebaskan)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="print-compact-card dashboard-card">
-            <CardHeader className="print:p-0">
-              <CardTitle className="text-sm text-muted-foreground print-compact-title">
-                Total Tunggakan
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="print:p-0">
-              <p className="text-2xl font-bold text-red-600 print-compact-value">
-                {formatRupiah(summary.totalTunggakan)}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="dashboard-card">
+        <Card className="dashboard-card print-tight-card">
           <CardHeader>
             <CardTitle>Detail Laporan</CardTitle>
           </CardHeader>
@@ -901,9 +863,8 @@ export default function LaporanPage() {
                   <TableHead>Kelas</TableHead>
                   <TableHead>SPP / Bulan</TableHead>
                   <TableHead>Bayar SPP</TableHead>
-                  <TableHead>Uang Masuk</TableHead>
                   <TableHead>Dibebaskan</TableHead>
-                  <TableHead>Tunggakan SPP</TableHead>
+                  <TableHead>Tunggakan SPP (s.d. {labelBulanFilter})</TableHead>
 
                   {showPpdb && <TableHead>PPDB</TableHead>}
                   {extraTagihan.du11 && <TableHead>DU 11</TableHead>}
@@ -935,9 +896,6 @@ export default function LaporanPage() {
                       <TableCell>{item.kelas}</TableCell>
                       <TableCell>{formatRupiah(item.sppBulanan)}</TableCell>
                       <TableCell>{formatRupiah(item.totalBayarSpp)}</TableCell>
-                      <TableCell className="text-emerald-600 font-semibold">
-                        {formatRupiah(item.totalUangMasukSpp)}
-                      </TableCell>
                       <TableCell className="text-amber-600 font-semibold">
                         {formatRupiah(item.dibebaskan)}
                       </TableCell>
@@ -987,77 +945,72 @@ export default function LaporanPage() {
         </Card>
 
         {laporan.length > 0 && (
-          <Card className="dashboard-card">
+          <Card className="dashboard-card print-tight-card">
             <CardHeader>
               <CardTitle>Ringkasan Kolom Aktif</CardTitle>
             </CardHeader>
 
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-              <div className="flex justify-between border rounded-lg p-3">
-                <span>Tunggakan SPP</span>
+            <CardContent className="print-detail-grid grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+              <div className="print-detail-item flex justify-between border rounded-lg p-3">
+                <span>Tunggakan SPP (s.d. {labelBulanFilter})</span>
                 <strong>{formatRupiah(summary.tunggakanSpp)}</strong>
               </div>
 
-              <div className="flex justify-between border rounded-lg p-3 text-emerald-600">
-                <span>Uang Masuk</span>
-                <strong>{formatRupiah(summary.totalUangMasukSpp)}</strong>
-              </div>
-
-              <div className="flex justify-between border rounded-lg p-3 text-amber-600">
+              <div className="print-detail-item flex justify-between border rounded-lg p-3 text-amber-600">
                 <span>Dibebaskan</span>
                 <strong>{formatRupiah(summary.dibebaskan)}</strong>
               </div>
 
               {showPpdb && (
-                <div className="flex justify-between border rounded-lg p-3">
+                <div className="print-detail-item flex justify-between border rounded-lg p-3">
                   <span>PPDB</span>
                   <strong>{formatRupiah(summary.ppdb)}</strong>
                 </div>
               )}
 
               {extraTagihan.du11 && (
-                <div className="flex justify-between border rounded-lg p-3">
+                <div className="print-detail-item flex justify-between border rounded-lg p-3">
                   <span>DU 11</span>
                   <strong>{formatRupiah(summary.du11)}</strong>
                 </div>
               )}
 
               {extraTagihan.du12 && (
-                <div className="flex justify-between border rounded-lg p-3">
+                <div className="print-detail-item flex justify-between border rounded-lg p-3">
                   <span>DU 12</span>
                   <strong>{formatRupiah(summary.du12)}</strong>
                 </div>
               )}
 
               {extraTagihan.spp10 && (
-                <div className="flex justify-between border rounded-lg p-3">
+                <div className="print-detail-item flex justify-between border rounded-lg p-3">
                   <span>SPP 10</span>
                   <strong>{formatRupiah(summary.spp10)}</strong>
                 </div>
               )}
 
               {extraTagihan.spp11 && (
-                <div className="flex justify-between border rounded-lg p-3">
+                <div className="print-detail-item flex justify-between border rounded-lg p-3">
                   <span>SPP 11</span>
                   <strong>{formatRupiah(summary.spp11)}</strong>
                 </div>
               )}
 
               {extraTagihan.pkl && (
-                <div className="flex justify-between border rounded-lg p-3">
+                <div className="print-detail-item flex justify-between border rounded-lg p-3">
                   <span>PKL</span>
                   <strong>{formatRupiah(summary.pkl)}</strong>
                 </div>
               )}
 
               {extraTagihan.ujian && (
-                <div className="flex justify-between border rounded-lg p-3">
+                <div className="print-detail-item flex justify-between border rounded-lg p-3">
                   <span>Ujian</span>
                   <strong>{formatRupiah(summary.ujian)}</strong>
                 </div>
               )}
 
-              <div className="flex justify-between border rounded-lg p-3 text-red-600">
+              <div className="print-detail-item flex justify-between border rounded-lg p-3 text-red-600">
                 <span>Total Keseluruhan</span>
                 <strong>{formatRupiah(summary.totalTunggakan)}</strong>
               </div>
