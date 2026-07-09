@@ -3,11 +3,8 @@
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  Archive,
-  ArrowUpCircle,
   CalendarDays,
   CreditCard,
-  DatabaseBackup,
   FileText,
   KeyRound,
   LayoutDashboard,
@@ -16,8 +13,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScrollText,
-  Settings,
-  Users,
   Wallet,
   X,
 } from "lucide-react"
@@ -70,30 +65,6 @@ const allMenus = [
     adminOnly: true,
   },
   
-  {
-    title: "Master SPP",
-    href: "/dashboard/master-spp",
-    icon: Settings,
-    adminOnly: true,
-  },
-  {
-  title: "Backup & Restore",
-  href: "/dashboard/arsip-angkatan",
-  icon: Archive,
-  adminOnly: true,
-},
-  {
-  title: "Kenaikan Kelas",
-  href: "/dashboard/kenaikan-kelas",
-  icon: ArrowUpCircle,
-  adminOnly: true,
-},
-  {
-  title: "Kelas",
-  href: "/dashboard/kelas",
-  icon: Users,
-  adminOnly: true,
-},
   {
     title: "Ubah Password",
     href: "/dashboard/ubah-password",
