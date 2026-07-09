@@ -13,6 +13,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -68,6 +69,14 @@ type LogPpdb = {
       tahun_ajaran?: string | null
     } | null
   }
+}
+
+type MasterPpdb = {
+  id_ppdb: string
+  daftar: number
+  ppdb: number
+  tahun: number
+  kode_akses?: string
 }
 
 type SortKey =
@@ -138,6 +147,14 @@ export default function LogPpdbPage() {
 
   const [openBukti, setOpenBukti] = useState(false)
 const [selectedBukti, setSelectedBukti] = useState<string | null>(null)
+
+  const [masterPpdb, setMasterPpdb] = useState<Record<number, MasterPpdb>>({})
+
+  const [openHapus, setOpenHapus] = useState(false)
+  const [hapusTarget, setHapusTarget] = useState<LogPpdb | null>(null)
+  const [kodeAksesHapusInput, setKodeAksesHapusInput] = useState("")
+  const [loadingHapus, setLoadingHapus] = useState(false)
+  const [savingHapus, setSavingHapus] = useState(false)
 
 const openModalBukti = (bukti: string | null | undefined) => {
   if (!bukti) return
@@ -295,23 +312,73 @@ const openModalBukti = (bukti: string | null | undefined) => {
     window.open(`https://sakuci.id/${id_log}/ppdbLog`, "_blank")
   }
 
-  const hapusLog = async (id_log: string) => {
+  const getMasterPpdb = async (tahun: number) => {
+    if (!tahun) return null
+    if (masterPpdb[tahun]) return masterPpdb[tahun]
+
+    try {
+      const res = await apiFetch(`/ppdb/masterppdb?tahun=${tahun}`)
+
+      setMasterPpdb((prev) => ({
+        ...prev,
+        [tahun]: res.data,
+      }))
+
+      return res.data
+    } catch (error) {
+      console.error(error)
+      return null
+    }
+  }
+
+  const bukaHapus = async (item: LogPpdb) => {
     if (!canDeleteLogSpp(user)) {
       alert("Akses ditolak. Hanya admin keuangan yang boleh menghapus log.")
       return
     }
 
-    if (!confirm("Yakin hapus log PPDB ini?")) return
+    setHapusTarget(item)
+    setKodeAksesHapusInput("")
+    setOpenHapus(true)
+
+    const tahun = item.siswa_ppdb?.tahun
+    if (tahun) {
+      setLoadingHapus(true)
+      await getMasterPpdb(Number(tahun))
+      setLoadingHapus(false)
+    }
+  }
+
+  const konfirmHapus = async () => {
+    if (!hapusTarget) return
+
+    const tahun = hapusTarget.siswa_ppdb?.tahun
+    const kodeAksesValid = tahun ? masterPpdb[Number(tahun)]?.kode_akses : null
+
+    if (!kodeAksesValid) {
+      alert("Kode akses untuk tahun PPDB ini belum diatur di master PPDB.")
+      return
+    }
+
+    if (kodeAksesHapusInput !== kodeAksesValid) {
+      alert("Kode akses salah.")
+      return
+    }
+
+    setSavingHapus(true)
 
     try {
-      await apiFetch(`/spp/deletelogppdb/${id_log}`, {
+      await apiFetch(`/spp/deletelogppdb/${hapusTarget.id_log}`, {
         method: "DELETE",
       })
 
       alert("Berhasil dihapus")
+      setOpenHapus(false)
       getLogPpdb(page)
     } catch (error: any) {
       alert(error.message || "Gagal menghapus log PPDB")
+    } finally {
+      setSavingHapus(false)
     }
   }
 
@@ -660,7 +727,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => hapusLog(item.id_log)}
+                              onClick={() => bukaHapus(item)}
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Hapus
@@ -726,6 +793,49 @@ const openModalBukti = (bukti: string | null | undefined) => {
     )}
   </DialogContent>
 </Dialog>
+
+      <Dialog open={openHapus} onOpenChange={setOpenHapus}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus Log PPDB</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Siswa</Label>
+              <Input
+                value={hapusTarget?.siswa_ppdb?.nama_lengkap || ""}
+                disabled
+              />
+            </div>
+
+            <div>
+              <Label>Kode Akses</Label>
+              <Input
+                type="password"
+                value={kodeAksesHapusInput}
+                onChange={(e) => setKodeAksesHapusInput(e.target.value)}
+                placeholder="Masukkan kode akses dari master PPDB"
+                disabled={loadingHapus}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenHapus(false)}>
+              Batal
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={konfirmHapus}
+              disabled={loadingHapus || savingHapus}
+            >
+              {savingHapus ? "Menghapus..." : "Hapus"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
