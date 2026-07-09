@@ -339,8 +339,15 @@ export default function LaporanKeuanganPage() {
             left: 0;
             top: 0;
             width: 100%;
-            background: white;
+            background: white !important;
             padding: 14px;
+            color: #000 !important;
+          }
+
+          /* Paksa teks hitam biar tetap kebaca walau lagi dark mode. */
+          #print-area * {
+            color: #000 !important;
+            background-color: transparent !important;
           }
 
           .no-print {
