@@ -1,14 +1,18 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
   ArrowUpDown,
+  Camera,
   ImageIcon,
   Pencil,
   Printer,
+  RotateCcw,
   Search,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
@@ -196,6 +200,17 @@ const [selectedBukti, setSelectedBukti] = useState<string | null>(null)
   const [tanggalBaru, setTanggalBaru] = useState("")
   const [bayarBaru, setBayarBaru] = useState<"csh" | "trf" | "sbs">("csh")
   const [savingTanggal, setSavingTanggal] = useState(false)
+
+  const [buktiBaru, setBuktiBaru] = useState<File | null>(null)
+  const [buktiBaruPreviewUrl, setBuktiBaruPreviewUrl] = useState<
+    string | null
+  >(null)
+  const [buktiBaruMode, setBuktiBaruMode] = useState<"file" | "kamera">(
+    "file"
+  )
+  const [kameraAktif, setKameraAktif] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
 const openModalBukti = (bukti: string | null | undefined) => {
   if (!bukti) return
@@ -489,11 +504,95 @@ const openModalBukti = (bukti: string | null | undefined) => {
     }
   }
 
+  const stopKamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    setKameraAktif(false)
+  }
+
+  const startKamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      })
+
+      streamRef.current = stream
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+
+      setKameraAktif(true)
+    } catch (error: any) {
+      alert("Gagal mengakses kamera: " + (error.message || "tidak diizinkan"))
+      setBuktiBaruMode("file")
+    }
+  }
+
+  const ambilFotoBukti = () => {
+    const video = videoRef.current
+    if (!video) return
+
+    const canvas = document.createElement("canvas")
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+
+    const ctx = canvas.getContext("2d")
+    ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return
+
+        const file = new File([blob], `bukti-kamera-${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        })
+
+        setBuktiBaru(file)
+        stopKamera()
+      },
+      "image/jpeg",
+      0.9
+    )
+  }
+
+  const ambilUlangFotoBukti = () => {
+    setBuktiBaru(null)
+    startKamera()
+  }
+
+  useEffect(() => {
+    if (buktiBaruMode === "kamera" && openEditTanggal) {
+      startKamera()
+    } else {
+      stopKamera()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buktiBaruMode, openEditTanggal])
+
+  useEffect(() => {
+    return () => stopKamera()
+  }, [])
+
+  useEffect(() => {
+    if (!buktiBaru) {
+      setBuktiBaruPreviewUrl(null)
+      return
+    }
+
+    const url = URL.createObjectURL(buktiBaru)
+    setBuktiBaruPreviewUrl(url)
+
+    return () => URL.revokeObjectURL(url)
+  }, [buktiBaru])
+
   const bukaEditTanggal = (item: LogSpp) => {
     setEditTanggalTarget(item)
     setTanggalBaru(toDatetimeLocalValue(item.created_at))
     setBayarBaru(item.bayar)
     setKodeAksesInput("")
+    setBuktiBaru(null)
+    setBuktiBaruMode("file")
     setOpenEditTanggal(true)
   }
 
@@ -513,12 +612,17 @@ const openModalBukti = (bukti: string | null | undefined) => {
     setSavingTanggal(true)
 
     try {
+      const formData = new FormData()
+      formData.append("created_at", new Date(tanggalBaru).toISOString())
+      formData.append("bayar", bayarBaru)
+
+      if (buktiBaru) {
+        formData.append("bukti", buktiBaru)
+      }
+
       await apiFetch(`/spp/updatelog/${editTanggalTarget.id_logspp}`, {
         method: "PUT",
-        body: JSON.stringify({
-          created_at: new Date(tanggalBaru).toISOString(),
-          bayar: bayarBaru,
-        }),
+        body: formData,
       })
 
       alert("Data berhasil diperbarui")
@@ -860,12 +964,12 @@ const openModalBukti = (bukti: string | null | undefined) => {
     <span className="text-muted-foreground">-</span>
   )}
                           <Button
-                            size="sm"
+                            size="icon-sm"
                             variant="outline"
+                            title="Bukti"
                             onClick={() => printBukti(item.id_logspp)}
                           >
-                            <Printer className="w-4 h-4 mr-2" />
-                            Bukti
+                            <Printer className="w-4 h-4" />
                           </Button>
 
                           <Button
@@ -1028,6 +1132,103 @@ const openModalBukti = (bukti: string | null | undefined) => {
                   <SelectItem value="sbs">Dibebaskan</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Bukti Pembayaran (opsional)</Label>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={buktiBaruMode === "file" ? "default" : "outline"}
+                  onClick={() => {
+                    setBuktiBaruMode("file")
+                    setBuktiBaru(null)
+                  }}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload File
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={buktiBaruMode === "kamera" ? "default" : "outline"}
+                  onClick={() => {
+                    setBuktiBaruMode("kamera")
+                    setBuktiBaru(null)
+                  }}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Ambil dari Kamera
+                </Button>
+              </div>
+
+              {buktiBaruMode === "file" && !buktiBaru && (
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setBuktiBaru(e.target.files?.[0] || null)}
+                />
+              )}
+
+              {buktiBaruMode === "kamera" && !buktiBaru && (
+                <div className="space-y-2">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full max-w-sm rounded-lg border bg-black"
+                  />
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={ambilFotoBukti}
+                    disabled={!kameraAktif}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Ambil Foto
+                  </Button>
+                </div>
+              )}
+
+              {buktiBaru && buktiBaruPreviewUrl && (
+                <div className="flex items-center gap-3 rounded-xl border bg-muted/30 p-2.5">
+                  <img
+                    src={buktiBaruPreviewUrl}
+                    alt="Preview bukti"
+                    className="h-20 w-20 rounded-lg object-cover"
+                  />
+
+                  <div className="flex-1 text-sm text-muted-foreground truncate">
+                    {buktiBaru.name}
+                  </div>
+
+                  {buktiBaruMode === "kamera" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={ambilUlangFotoBukti}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Ambil Ulang
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="outline"
+                      onClick={() => setBuktiBaru(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
