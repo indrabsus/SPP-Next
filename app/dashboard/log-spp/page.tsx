@@ -164,6 +164,8 @@ export default function LogSppPage() {
   const [metode, setMetode] = useState("semua")
   const [tahunAjaran, setTahunAjaran] = useState("")
   const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
+  const [filterStartDate, setFilterStartDate] = useState("")
+  const [filterEndDate, setFilterEndDate] = useState("")
 
   const [page, setPage] = useState(1)
   const [limit] = useState(50)
@@ -247,6 +249,14 @@ const openModalBukti = (bukti: string | null | undefined) => {
         params.set("tahun_ajaran", tahunAjaran)
       }
 
+      if (filterStartDate) {
+        params.set("start_date", filterStartDate)
+      }
+
+      if (filterEndDate) {
+        params.set("end_date", filterEndDate)
+      }
+
       if (isAdminKeuangan(user)) {
         if (tingkat !== "semua") {
           params.set("tingkat", tingkat)
@@ -285,7 +295,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
       getLogSpp(1)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tingkat, metode, tahunAjaran])
+  }, [user, tingkat, metode, tahunAjaran, filterStartDate, filterEndDate])
 
   const handleCari = () => {
     getLogSpp(1)
@@ -344,8 +354,8 @@ const openModalBukti = (bukti: string | null | undefined) => {
 
   const bukaPrint = () => {
     const today = new Date().toISOString().slice(0, 10)
-    setStartDate(today)
-    setEndDate(today)
+    setStartDate(filterStartDate || today)
+    setEndDate(filterEndDate || today)
     setOpenPrint(true)
   }
 
@@ -642,6 +652,39 @@ const openModalBukti = (bukti: string | null | undefined) => {
                   <SelectItem value="sbs">Dibebaskan</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label>Tanggal Awal</Label>
+              <Input
+                type="date"
+                value={filterStartDate}
+                onChange={(e) => setFilterStartDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Tanggal Akhir</Label>
+              <Input
+                type="date"
+                value={filterEndDate}
+                onChange={(e) => setFilterEndDate(e.target.value)}
+              />
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setFilterStartDate("")
+                  setFilterEndDate("")
+                }}
+                disabled={!filterStartDate && !filterEndDate}
+              >
+                Reset Tanggal
+              </Button>
             </div>
           </div>
         </CardContent>
