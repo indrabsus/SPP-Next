@@ -144,8 +144,6 @@ const getKeterangan = (log: LogSpp) => {
   return `${bulan} / ${kelas}`
 }
 
-const KODE_AKSES_EDIT_TANGGAL = "123oke"
-
 const toDatetimeLocalValue = (value: string) => {
   if (!value) return ""
 
@@ -196,7 +194,6 @@ const [selectedBukti, setSelectedBukti] = useState<string | null>(null)
   const [editTanggalTarget, setEditTanggalTarget] = useState<LogSpp | null>(
     null
   )
-  const [kodeAksesInput, setKodeAksesInput] = useState("")
   const [tanggalBaru, setTanggalBaru] = useState("")
   const [bayarBaru, setBayarBaru] = useState<"csh" | "trf" | "sbs">("csh")
   const [savingTanggal, setSavingTanggal] = useState(false)
@@ -590,7 +587,6 @@ const openModalBukti = (bukti: string | null | undefined) => {
     setEditTanggalTarget(item)
     setTanggalBaru(toDatetimeLocalValue(item.created_at))
     setBayarBaru(item.bayar)
-    setKodeAksesInput("")
     setBuktiBaru(null)
     setBuktiBaruMode("file")
     setOpenEditTanggal(true)
@@ -598,11 +594,6 @@ const openModalBukti = (bukti: string | null | undefined) => {
 
   const simpanEditTanggal = async () => {
     if (!editTanggalTarget) return
-
-    if (kodeAksesInput !== KODE_AKSES_EDIT_TANGGAL) {
-      alert("Kode akses salah.")
-      return
-    }
 
     if (!tanggalBaru) {
       alert("Tanggal wajib diisi")
@@ -1229,16 +1220,6 @@ const openModalBukti = (bukti: string | null | undefined) => {
                   )}
                 </div>
               )}
-            </div>
-
-            <div>
-              <Label>Kode Akses</Label>
-              <Input
-                type="password"
-                value={kodeAksesInput}
-                onChange={(e) => setKodeAksesInput(e.target.value)}
-                placeholder="Masukkan kode akses"
-              />
             </div>
           </div>
 
