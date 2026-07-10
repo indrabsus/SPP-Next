@@ -964,22 +964,22 @@ const openModalBukti = (bukti: string | null | undefined) => {
                           </Button>
 
                           <Button
-                            size="sm"
+                            size="icon-sm"
                             variant="outline"
+                            title="Edit"
                             onClick={() => bukaEditTanggal(item)}
                           >
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit
+                            <Pencil className="w-4 h-4" />
                           </Button>
 
                           {canDeleteLogSpp(user) && (
                             <Button
-                              size="sm"
+                              size="icon-sm"
                               variant="destructive"
+                              title="Hapus"
                               onClick={() => hapusLog(item.id_logspp)}
                             >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Hapus
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           )}
                         </div>
