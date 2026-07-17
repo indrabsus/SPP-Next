@@ -168,6 +168,31 @@ const bulanSpp = [
 const bulanTagihan = bulanSpp.slice(0, 12)
 const ITEMS_PER_PAGE = 50
 
+// Kelas 12 cuma menagih SPP untuk 10 bulan pertama (Juli-April) - Mei & Juni
+// (value "11" & "12") disembunyikan dari pilihan bulan.
+const JUMLAH_BULAN_SPP_KELAS_12 = 10
+const BULAN_SPP_DISEMBUNYIKAN_KELAS_12 = ["11", "12"]
+
+const getBulanSppUntukTingkat = (tingkatSiswa: string) => {
+  if (tingkatSiswa === "12") {
+    return bulanSpp.filter(
+      (item) => !BULAN_SPP_DISEMBUNYIKAN_KELAS_12.includes(item.value)
+    )
+  }
+
+  return bulanSpp
+}
+
+const getBulanTagihanUntukTingkat = (tingkatValue: string) => {
+  if (tingkatValue === "12") {
+    return bulanTagihan.filter(
+      (item) => !BULAN_SPP_DISEMBUNYIKAN_KELAS_12.includes(item.value)
+    )
+  }
+
+  return bulanTagihan
+}
+
 // Bulan 13/14/15 ("Tunggakan Kelas 10/11/12") itu tagihan yang menempel ke
 // tingkat tertentu, terlepas dari tingkat siswa sekarang - jadi log_spp.kelas
 // harus ikut angka tunggakannya, bukan tingkat siswa saat ini.
@@ -470,7 +495,15 @@ export default function PembayaranPage() {
       setIdKelas("semua")
       resetExtraTagihanByTingkat(tingkat)
       getKelas(tingkat)
+
+      if (
+        tingkat === "12" &&
+        BULAN_SPP_DISEMBUNYIKAN_KELAS_12.includes(bulanFilter)
+      ) {
+        setBulanFilter("10")
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tingkat])
 
   useEffect(() => {
@@ -496,7 +529,13 @@ export default function PembayaranPage() {
 
     if (tingkatSiswa === "10") return Number(master.spp10 || 0)
     if (tingkatSiswa === "11") return Number(master.spp11 || 0)
-    if (tingkatSiswa === "12") return Number(master.spp12 || 0)
+
+    if (tingkatSiswa === "12") {
+      // Kelas 12 cuma nagih SPP 10 bulan (Juli-April, bulan 11 & 12
+      // dikosongkan), bukan 12 bulan penuh - total setahun dipertahankan
+      // sama dengan menaikkan nominal per bulannya (x12/10).
+      return Math.round((Number(master.spp12 || 0) * 12) / JUMLAH_BULAN_SPP_KELAS_12)
+    }
 
     return 0
   }
@@ -775,7 +814,14 @@ export default function PembayaranPage() {
       setNominal(String(getTunggakanPpdb(siswa)))
       setBayar("csh")
     } else {
-      setBulan(bulanFilter)
+      const tingkatSiswa = getTingkatSiswa(siswa)
+      const bulanDefault =
+        tingkatSiswa === "12" &&
+        BULAN_SPP_DISEMBUNYIKAN_KELAS_12.includes(bulanFilter)
+          ? "10"
+          : bulanFilter
+
+      setBulan(bulanDefault)
       setNominal(String(getNominalSpp(siswa)))
       setBayar("csh")
     }
@@ -968,7 +1014,7 @@ export default function PembayaranPage() {
                   <SelectValue placeholder="Pilih bulan tagihan" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bulanTagihan.map((item) => (
+                  {getBulanTagihanUntukTingkat(tingkat).map((item) => (
                     <SelectItem key={item.value} value={item.value}>
                       {item.label}
                     </SelectItem>
@@ -1291,7 +1337,9 @@ export default function PembayaranPage() {
                     <SelectValue placeholder="Pilih jenis pembayaran" />
                   </SelectTrigger>
                   <SelectContent>
-                    {bulanSpp.map((item) => (
+                    {getBulanSppUntukTingkat(
+                      selectedSiswa ? getTingkatSiswa(selectedSiswa) : tingkat
+                    ).map((item) => (
                       <SelectItem key={item.value} value={item.value}>
                         {item.label}
                       </SelectItem>
