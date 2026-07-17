@@ -75,7 +75,7 @@ type LogPpdb = {
   id_log: string
   nominal: string
   jenis: "d" | "p" | "l"
-  bayar: "csh" | "trf" | null
+  bayar: "csh" | "trf" | "sbs" | null
   created_at: string
 }
 
@@ -1404,9 +1404,7 @@ export default function PembayaranPage() {
                   <SelectContent>
                     <SelectItem value="csh">Cash</SelectItem>
                     <SelectItem value="trf">Transfer</SelectItem>
-                    {paymentMode === "spp" && (
-                      <SelectItem value="sbs">Subsidi / Dibebaskan</SelectItem>
-                    )}
+                    <SelectItem value="sbs">Subsidi / Dibebaskan</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
