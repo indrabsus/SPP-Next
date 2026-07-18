@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: 215 20% 84%;
+  --background: 215 18% 89%;
   --foreground: 222 25% 15%;
 
   --card: 210 20% 97%;
@@ -16,20 +16,20 @@
   --primary: 221.2 83.2% 53.3%;
   --primary-foreground: 210 40% 98%;
 
-  --secondary: 215 20% 84%;
+  --secondary: 215 18% 89%;
   --secondary-foreground: 222 20% 18%;
 
-  --muted: 215 20% 84%;
-  --muted-foreground: 215 12% 40%;
+  --muted: 215 18% 89%;
+  --muted-foreground: 215 12% 42%;
 
-  --accent: 215 20% 84%;
+  --accent: 215 18% 89%;
   --accent-foreground: 222 20% 18%;
 
   --destructive: 0 65% 48%;
   --destructive-foreground: 210 20% 98%;
 
-  --border: 215 18% 76%;
-  --input: 215 18% 76%;
+  --border: 215 16% 80%;
+  --input: 215 16% 80%;
   --ring: 221.2 83.2% 53.3%;
 
   --radius: 0.9rem;
@@ -125,7 +125,7 @@ body:not(.dark) {
       rgba(51, 65, 85, 0.04),
       transparent 32%
     ),
-    #ced5de;
+    #dee2e8;
 }
 
 /* =======================================================
