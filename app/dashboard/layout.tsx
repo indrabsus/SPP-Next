@@ -99,6 +99,7 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [tahunAjaranAktif, setTahunAjaranAktif] = useState<string | null>(null)
+  const [waOnline, setWaOnline] = useState<boolean | null>(null)
 
   useEffect(() => {
     const currentUser = getUser()
@@ -117,6 +118,21 @@ export default function DashboardLayout({
     apiFetch("/riwayat-kelas/tahun-aktif")
       .then((res) => setTahunAjaranAktif(res.data?.tahun_ajaran || null))
       .catch(() => setTahunAjaranAktif(null))
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+
+    const cekStatusWa = () => {
+      apiFetch("/wa/status")
+        .then((res) => setWaOnline(res.data?.status === "ready"))
+        .catch(() => setWaOnline(false))
+    }
+
+    cekStatusWa()
+    const interval = setInterval(cekStatusWa, 20000)
+
+    return () => clearInterval(interval)
   }, [user])
 
   if (!user) return null
@@ -331,6 +347,19 @@ export default function DashboardLayout({
               <Badge variant="outline" className="hidden sm:inline-flex">
                 <CalendarDays className="w-3 h-3 mr-1" />
                 Tahun Ajaran {tahunAjaranAktif}
+              </Badge>
+            )}
+
+            {waOnline !== null && (
+              <Badge variant="outline" className="hidden sm:inline-flex">
+                <span
+                  className={`mr-1.5 h-2 w-2 rounded-full ${
+                    waOnline
+                      ? "bg-emerald-500"
+                      : "bg-red-500"
+                  }`}
+                />
+                WhatsApp {waOnline ? "Online" : "Offline"}
               </Badge>
             )}
           </div>

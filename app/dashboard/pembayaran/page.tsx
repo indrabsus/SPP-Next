@@ -9,6 +9,7 @@ import {
   Filter,
   History,
   Loader2,
+  MessageCircle,
   ReceiptText,
   RotateCcw,
   Search,
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Card,
   CardContent,
@@ -83,6 +85,8 @@ type Siswa = {
   id_siswa: string
   nama_lengkap: string
   tahun: number
+  no_hp?: string | null
+  no_hp_ortu?: string | null
   log_ppdb?: LogPpdb[]
   log_spp?: LogSpp[]
   siswa_baru?: {
@@ -318,6 +322,12 @@ export default function PembayaranPage() {
 
   const [logLast, setLogLast] = useState<LogSpp[]>([])
   const [loadingLogLast, setLoadingLogLast] = useState(false)
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [openKirimWa, setOpenKirimWa] = useState(false)
+  const [pesanWa, setPesanWa] = useState("")
+  const [targetWa, setTargetWa] = useState<Record<string, "siswa" | "ortu">>({})
+  const [sendingWa, setSendingWa] = useState(false)
 
   useEffect(() => {
     const currentUser = getUser()
@@ -899,6 +909,96 @@ export default function PembayaranPage() {
   const jumlahKolomTambahan =
     Object.values(extraTagihan).filter(Boolean).length + (showPpdb ? 1 : 0)
 
+  const toggleSelectSiswa = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const semuaTerpilihDiHalaman =
+    paginatedSiswa.length > 0 &&
+    paginatedSiswa.every((siswa) => selectedIds.has(siswa.id_siswa))
+
+  const toggleSelectSemuaDiHalaman = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+
+      if (semuaTerpilihDiHalaman) {
+        paginatedSiswa.forEach((siswa) => next.delete(siswa.id_siswa))
+      } else {
+        paginatedSiswa.forEach((siswa) => next.add(siswa.id_siswa))
+      }
+
+      return next
+    })
+  }
+
+  const siswaTerpilih = dataSiswa.filter((siswa) => selectedIds.has(siswa.id_siswa))
+
+  const bukaKirimWa = () => {
+    const defaultTarget: Record<string, "siswa" | "ortu"> = {}
+
+    siswaTerpilih.forEach((siswa) => {
+      defaultTarget[siswa.id_siswa] = siswa.no_hp ? "siswa" : "ortu"
+    })
+
+    setTargetWa(defaultTarget)
+    setPesanWa("")
+    setOpenKirimWa(true)
+  }
+
+  const getNomorWa = (siswa: Siswa, pilihan: "siswa" | "ortu") => {
+    return pilihan === "siswa" ? siswa.no_hp : siswa.no_hp_ortu
+  }
+
+  const kirimWa = async () => {
+    if (!pesanWa.trim()) {
+      alert("Pesan tidak boleh kosong")
+      return
+    }
+
+    setSendingWa(true)
+
+    let sukses = 0
+    let gagal = 0
+
+    for (const siswa of siswaTerpilih) {
+      const pilihan = targetWa[siswa.id_siswa] || "siswa"
+      const nomor = getNomorWa(siswa, pilihan)
+
+      if (!nomor) {
+        gagal += 1
+        continue
+      }
+
+      try {
+        await apiFetch("/wa/kirim", {
+          method: "POST",
+          body: JSON.stringify({ nomor, pesan: pesanWa }),
+        })
+        sukses += 1
+      } catch (error) {
+        gagal += 1
+      }
+    }
+
+    setSendingWa(false)
+    setOpenKirimWa(false)
+    setSelectedIds(new Set())
+
+    alert(
+      gagal > 0
+        ? `${sukses} pesan berhasil dikirim, ${gagal} gagal.`
+        : `${sukses} pesan berhasil dikirim.`
+    )
+  }
+
   if (!user) return null
 
   return (
@@ -1074,15 +1174,35 @@ export default function PembayaranPage() {
             <Users className="w-4 h-4 text-muted-foreground" />
             Data Siswa
           </CardTitle>
-          <Badge variant="secondary" className="font-semibold">
-            {sortedSiswa.length} siswa
-          </Badge>
+
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="font-semibold">
+              {sortedSiswa.length} siswa
+            </Badge>
+
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={selectedIds.size === 0}
+              onClick={bukaKirimWa}
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Kirim WA ({selectedIds.size})
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={semuaTerpilihDiHalaman}
+                    onCheckedChange={toggleSelectSemuaDiHalaman}
+                  />
+                </TableHead>
+
                 <TableHead>No</TableHead>
 
                 <TableHead>
@@ -1153,7 +1273,7 @@ export default function PembayaranPage() {
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6 + jumlahKolomTambahan}
+                    colSpan={7 + jumlahKolomTambahan}
                     className="py-10"
                   >
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
@@ -1165,7 +1285,7 @@ export default function PembayaranPage() {
               ) : paginatedSiswa.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6 + jumlahKolomTambahan}
+                    colSpan={7 + jumlahKolomTambahan}
                     className="text-center py-10 text-muted-foreground"
                   >
                     Data siswa belum ada
@@ -1175,11 +1295,37 @@ export default function PembayaranPage() {
                 paginatedSiswa.map((siswa, index) => (
                   <TableRow key={siswa.id_siswa}>
                     <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(siswa.id_siswa)}
+                        onCheckedChange={() => toggleSelectSiswa(siswa.id_siswa)}
+                      />
+                    </TableCell>
+
+                    <TableCell>
                       {(page - 1) * ITEMS_PER_PAGE + index + 1}
                     </TableCell>
 
                     <TableCell className="font-medium">
                       {siswa.nama_lengkap}
+                      <div className="mt-0.5 text-xs font-normal text-muted-foreground">
+                        <span
+                          className={
+                            siswa.no_hp ? "" : "text-red-600 dark:text-red-400"
+                          }
+                        >
+                          WA: {siswa.no_hp || "Belum diisi"}
+                        </span>
+                        <span className="mx-1">·</span>
+                        <span
+                          className={
+                            siswa.no_hp_ortu
+                              ? ""
+                              : "text-red-600 dark:text-red-400"
+                          }
+                        >
+                          WA Ortu: {siswa.no_hp_ortu || "Belum diisi"}
+                        </span>
+                      </div>
                     </TableCell>
 
                     <TableCell>
@@ -1516,6 +1662,75 @@ export default function PembayaranPage() {
             <Button onClick={simpanPembayaran} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {saving ? "Menyimpan..." : "Simpan Pembayaran"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openKirimWa} onOpenChange={setOpenKirimWa}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Kirim WhatsApp ({siswaTerpilih.length} siswa)</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {siswaTerpilih.map((siswa) => {
+                const pilihan = targetWa[siswa.id_siswa] || "siswa"
+
+                return (
+                  <div
+                    key={siswa.id_siswa}
+                    className="rounded-lg border p-2.5 space-y-2"
+                  >
+                    <p className="text-sm font-medium">{siswa.nama_lengkap}</p>
+
+                    <Select
+                      value={pilihan}
+                      onValueChange={(value: "siswa" | "ortu") =>
+                        setTargetWa((prev) => ({
+                          ...prev,
+                          [siswa.id_siswa]: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="siswa" disabled={!siswa.no_hp}>
+                          WA Siswa {siswa.no_hp ? `(${siswa.no_hp})` : "(kosong)"}
+                        </SelectItem>
+                        <SelectItem value="ortu" disabled={!siswa.no_hp_ortu}>
+                          WA Ortu{" "}
+                          {siswa.no_hp_ortu ? `(${siswa.no_hp_ortu})` : "(kosong)"}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div>
+              <Label>Pesan</Label>
+              <Textarea
+                value={pesanWa}
+                onChange={(e) => setPesanWa(e.target.value)}
+                placeholder="Tulis pesan yang akan dikirim..."
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenKirimWa(false)}>
+              Batal
+            </Button>
+
+            <Button onClick={kirimWa} disabled={sendingWa}>
+              {sendingWa && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {sendingWa ? "Mengirim..." : `Kirim (${siswaTerpilih.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>
