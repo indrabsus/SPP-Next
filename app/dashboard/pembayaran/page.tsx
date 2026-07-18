@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowUpDown,
   Camera,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -13,10 +14,12 @@ import {
   RotateCcw,
   Search,
   SlidersHorizontal,
+  Trash2,
   Upload,
   Users,
   Wallet,
   X,
+  AlertCircle,
 } from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
@@ -261,6 +264,16 @@ const normalizeNoHp = (value?: string | null) => {
   return hasil
 }
 
+// Validasi ringan nomor WA Indonesia: setelah dinormalisasi harus semua
+// angka, diawali 628 (62 + prefix seluler 8), dan panjang wajar.
+const isNoHpValid = (value?: string | null) => {
+  if (!value) return false
+
+  const normalized = normalizeNoHp(value)
+
+  return /^628\d{7,12}$/.test(normalized)
+}
+
 const getLabelBulan = (bulanValue: number) => {
   const found = bulanSpp.find((item) => item.value === String(bulanValue))
   return found?.label || "-"
@@ -346,6 +359,14 @@ export default function PembayaranPage() {
   const [pesanWa, setPesanWa] = useState("")
   const [targetWa, setTargetWa] = useState<Record<string, "siswa" | "ortu">>({})
   const [sendingWa, setSendingWa] = useState(false)
+
+  const [openEditNoHp, setOpenEditNoHp] = useState(false)
+  const [editNoHpTarget, setEditNoHpTarget] = useState<{
+    siswa: Siswa
+    field: "no_hp" | "no_hp_ortu"
+  } | null>(null)
+  const [editNoHpValue, setEditNoHpValue] = useState("")
+  const [savingNoHp, setSavingNoHp] = useState(false)
 
   useEffect(() => {
     const currentUser = getUser()
@@ -1018,6 +1039,62 @@ export default function PembayaranPage() {
     )
   }
 
+  const bukaEditNoHp = (siswa: Siswa, field: "no_hp" | "no_hp_ortu") => {
+    setEditNoHpTarget({ siswa, field })
+    setEditNoHpValue(normalizeNoHp(siswa[field]))
+    setOpenEditNoHp(true)
+  }
+
+  const simpanEditNoHp = async () => {
+    if (!editNoHpTarget) return
+
+    setSavingNoHp(true)
+
+    try {
+      await apiFetch("/ppdb/updatesiswa", {
+        method: "PUT",
+        body: JSON.stringify({
+          id_siswa: editNoHpTarget.siswa.id_siswa,
+          [editNoHpTarget.field]: normalizeNoHp(editNoHpValue),
+        }),
+      })
+
+      alert("Nomor WA berhasil disimpan")
+      setOpenEditNoHp(false)
+      getSiswa()
+    } catch (error: any) {
+      alert(error.message || "Gagal menyimpan nomor WA")
+    } finally {
+      setSavingNoHp(false)
+    }
+  }
+
+  const hapusNoHp = async () => {
+    if (!editNoHpTarget) return
+
+    if (!confirm("Yakin hapus nomor WA ini?")) return
+
+    setSavingNoHp(true)
+
+    try {
+      await apiFetch("/ppdb/updatesiswa", {
+        method: "PUT",
+        body: JSON.stringify({
+          id_siswa: editNoHpTarget.siswa.id_siswa,
+          [editNoHpTarget.field]: "",
+        }),
+      })
+
+      alert("Nomor WA berhasil dihapus")
+      setOpenEditNoHp(false)
+      getSiswa()
+    } catch (error: any) {
+      alert(error.message || "Gagal menghapus nomor WA")
+    } finally {
+      setSavingNoHp(false)
+    }
+  }
+
   if (!user) return null
 
   return (
@@ -1316,27 +1393,55 @@ export default function PembayaranPage() {
 
                     <TableCell className="font-medium">
                       {siswa.nama_lengkap}
-                      <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                        <span
-                          className={
-                            siswa.no_hp ? "" : "text-red-600 dark:text-red-400"
-                          }
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-normal">
+                        <button
+                          type="button"
+                          onClick={() => bukaEditNoHp(siswa, "no_hp")}
+                          className="inline-flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-primary"
                         >
+                          {isNoHpValid(siswa.no_hp) ? (
+                            <CheckCircle2
+                              className="w-3.5 h-3.5 text-emerald-500"
+                              fill="currentColor"
+                              stroke="white"
+                              strokeWidth={2.5}
+                            />
+                          ) : (
+                            <AlertCircle
+                              className="w-3.5 h-3.5 text-red-500"
+                              fill="currentColor"
+                              stroke="white"
+                              strokeWidth={2.5}
+                            />
+                          )}
                           WA: {siswa.no_hp ? normalizeNoHp(siswa.no_hp) : "Belum diisi"}
-                        </span>
-                        <span className="mx-1">·</span>
-                        <span
-                          className={
-                            siswa.no_hp_ortu
-                              ? ""
-                              : "text-red-600 dark:text-red-400"
-                          }
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => bukaEditNoHp(siswa, "no_hp_ortu")}
+                          className="inline-flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-primary"
                         >
+                          {isNoHpValid(siswa.no_hp_ortu) ? (
+                            <CheckCircle2
+                              className="w-3.5 h-3.5 text-emerald-500"
+                              fill="currentColor"
+                              stroke="white"
+                              strokeWidth={2.5}
+                            />
+                          ) : (
+                            <AlertCircle
+                              className="w-3.5 h-3.5 text-red-500"
+                              fill="currentColor"
+                              stroke="white"
+                              strokeWidth={2.5}
+                            />
+                          )}
                           WA Ortu:{" "}
                           {siswa.no_hp_ortu
                             ? normalizeNoHp(siswa.no_hp_ortu)
                             : "Belum diisi"}
-                        </span>
+                        </button>
                       </div>
                     </TableCell>
 
@@ -1748,6 +1853,88 @@ export default function PembayaranPage() {
             <Button onClick={kirimWa} disabled={sendingWa}>
               {sendingWa && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {sendingWa ? "Mengirim..." : `Kirim (${siswaTerpilih.length})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEditNoHp} onOpenChange={setOpenEditNoHp}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              Edit Nomor WA{" "}
+              {editNoHpTarget?.field === "no_hp" ? "Siswa" : "Orang Tua"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Siswa</Label>
+              <Input
+                value={editNoHpTarget?.siswa.nama_lengkap || ""}
+                disabled
+              />
+            </div>
+
+            <div>
+              <Label>Nomor WA</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editNoHpValue}
+                  onChange={(e) => setEditNoHpValue(e.target.value)}
+                  placeholder="Contoh: 081234567890"
+                />
+
+                {editNoHpValue.trim() &&
+                  (isNoHpValid(editNoHpValue) ? (
+                    <CheckCircle2
+                      className="w-5 h-5 shrink-0 text-emerald-500"
+                      fill="currentColor"
+                      stroke="white"
+                      strokeWidth={2.5}
+                    />
+                  ) : (
+                    <AlertCircle
+                      className="w-5 h-5 shrink-0 text-red-500"
+                      fill="currentColor"
+                      stroke="white"
+                      strokeWidth={2.5}
+                    />
+                  ))}
+              </div>
+
+              {editNoHpValue.trim() && !isNoHpValid(editNoHpValue) && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  Format nomor tampak tidak valid. Pastikan nomor HP benar
+                  sebelum disimpan.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            {editNoHpTarget?.siswa[editNoHpTarget.field] && (
+              <Button
+                variant="destructive"
+                onClick={hapusNoHp}
+                disabled={savingNoHp}
+                className="sm:mr-auto"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Hapus
+              </Button>
+            )}
+
+            <Button
+              variant="outline"
+              onClick={() => setOpenEditNoHp(false)}
+            >
+              Batal
+            </Button>
+
+            <Button onClick={simpanEditNoHp} disabled={savingNoHp}>
+              {savingNoHp && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {savingNoHp ? "Menyimpan..." : "Simpan"}
             </Button>
           </DialogFooter>
         </DialogContent>
