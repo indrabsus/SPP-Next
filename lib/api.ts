@@ -1,5 +1,21 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 
+// Pesan yang dikembalikan backend (middleware auth) saat token tidak ada /
+// tidak valid / kedaluwarsa. Kalau ini muncul padahal kita memang sedang
+// mengirim token, berarti sesi login sudah tidak berlaku lagi.
+const AUTH_ERROR_MESSAGES = ["Invalid Token.", "Access Denied. No Token Provided."]
+
+function paksaLogout() {
+  if (typeof window === "undefined") return
+
+  localStorage.removeItem("token")
+  localStorage.removeItem("user")
+
+  if (window.location.pathname !== "/") {
+    window.location.href = "/"
+  }
+}
+
 export async function apiFetch(path: string, options: RequestInit = {}) {
   if (!API_URL) {
     throw new Error("NEXT_PUBLIC_API_URL belum diset di .env.local")
@@ -34,7 +50,16 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   }
 
   if (!res.ok) {
-    throw new Error(data?.message || data?.error || "Terjadi kesalahan")
+    const message = data?.message || data?.error || "Terjadi kesalahan"
+
+    if (token && (res.status === 401 || AUTH_ERROR_MESSAGES.includes(message))) {
+      paksaLogout()
+      // Jangan lempar error ke pemanggil (biar tidak sempat muncul alert
+      // "Invalid Token" sesaat sebelum redirect ke halaman login).
+      return new Promise<never>(() => {})
+    }
+
+    throw new Error(message)
   }
 
   return data
