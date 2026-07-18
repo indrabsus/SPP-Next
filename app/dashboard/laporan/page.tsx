@@ -126,6 +126,22 @@ const bulanTagihan = [
   { value: "12", label: "Juni" },
 ]
 
+// Kelas 12 cuma menagih SPP untuk 10 bulan pertama (Juli-April) - Mei & Juni
+// (value "11" & "12") disembunyikan dari pilihan bulan, dan nominal SPP/bulan
+// disesuaikan agar total setahun tetap sama (spp12 * 12 / 10).
+const JUMLAH_BULAN_SPP_KELAS_12 = 10
+const BULAN_SPP_DISEMBUNYIKAN_KELAS_12 = ["11", "12"]
+
+const getBulanTagihanUntukTingkat = (tingkatValue: string) => {
+  if (tingkatValue === "12") {
+    return bulanTagihan.filter(
+      (item) => !BULAN_SPP_DISEMBUNYIKAN_KELAS_12.includes(item.value)
+    )
+  }
+
+  return bulanTagihan
+}
+
 const getBulanSekarangSpp = () => {
   const bulan = new Date().getMonth() + 1
 
@@ -350,6 +366,13 @@ export default function LaporanPage() {
       setSiswa([])
       resetExtraTagihanByTingkat(tingkat)
       getKelas(tingkat)
+
+      if (
+        tingkat === "12" &&
+        BULAN_SPP_DISEMBUNYIKAN_KELAS_12.includes(bulanFilter)
+      ) {
+        setBulanFilter("10")
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tingkat])
@@ -370,7 +393,8 @@ export default function LaporanPage() {
 
     if (t === "10") return Number(master.spp10 || 0)
     if (t === "11") return Number(master.spp11 || 0)
-    if (t === "12") return Number(master.spp12 || 0)
+    if (t === "12")
+      return Math.round((Number(master.spp12 || 0) * 12) / JUMLAH_BULAN_SPP_KELAS_12)
 
     return 0
   }
@@ -779,7 +803,7 @@ export default function LaporanPage() {
                   <SelectValue placeholder="Pilih bulan tagihan" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bulanTagihan.map((item) => (
+                  {getBulanTagihanUntukTingkat(tingkat).map((item) => (
                     <SelectItem key={item.value} value={item.value}>
                       {item.label}
                     </SelectItem>
