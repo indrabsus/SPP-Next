@@ -9,7 +9,6 @@ import {
   Filter,
   History,
   Loader2,
-  MessageCircle,
   ReceiptText,
   RotateCcw,
   Search,
@@ -242,6 +241,13 @@ const formatTanggal = (value: string) => {
     minute: "2-digit",
   })
 }
+
+const WhatsAppIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+    <path d="M12.001 2c-5.514 0-9.997 4.483-9.997 9.997 0 1.763.464 3.489 1.345 5.005L2.05 22l5.115-1.348a9.94 9.94 0 004.836 1.232h.004c5.514 0 9.997-4.483 9.997-9.997C21.998 6.483 17.515 2 12.001 2zm0 18.19h-.003a8.198 8.198 0 01-4.174-1.144l-.299-.177-3.106.815.827-3.03-.194-.31a8.19 8.19 0 01-1.259-4.377c0-4.535 3.689-8.223 8.226-8.223 2.198 0 4.264.856 5.818 2.412a8.163 8.163 0 012.407 5.817c-.001 4.535-3.69 8.217-8.243 8.217z" />
+  </svg>
+)
 
 const normalizeNoHp = (value?: string | null) => {
   if (!value) return ""
@@ -1195,11 +1201,11 @@ export default function PembayaranPage() {
 
             <Button
               size="sm"
-              variant="outline"
               disabled={selectedIds.size === 0}
               onClick={bukaKirimWa}
+              className="bg-green-600 text-white hover:bg-green-700"
             >
-              <MessageCircle className="w-4 h-4 mr-2" />
+              <WhatsAppIcon className="w-4 h-4 mr-2" />
               Kirim WA ({selectedIds.size})
             </Button>
           </div>
@@ -1215,8 +1221,6 @@ export default function PembayaranPage() {
                     onCheckedChange={toggleSelectSemuaDiHalaman}
                   />
                 </TableHead>
-
-                <TableHead>No</TableHead>
 
                 <TableHead>
                   <button
@@ -1286,7 +1290,7 @@ export default function PembayaranPage() {
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7 + jumlahKolomTambahan}
+                    colSpan={6 + jumlahKolomTambahan}
                     className="py-10"
                   >
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
@@ -1298,24 +1302,20 @@ export default function PembayaranPage() {
               ) : paginatedSiswa.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7 + jumlahKolomTambahan}
+                    colSpan={6 + jumlahKolomTambahan}
                     className="text-center py-10 text-muted-foreground"
                   >
                     Data siswa belum ada
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedSiswa.map((siswa, index) => (
+                paginatedSiswa.map((siswa) => (
                   <TableRow key={siswa.id_siswa}>
                     <TableCell>
                       <Checkbox
                         checked={selectedIds.has(siswa.id_siswa)}
                         onCheckedChange={() => toggleSelectSiswa(siswa.id_siswa)}
                       />
-                    </TableCell>
-
-                    <TableCell>
-                      {(page - 1) * ITEMS_PER_PAGE + index + 1}
                     </TableCell>
 
                     <TableCell className="font-medium">
