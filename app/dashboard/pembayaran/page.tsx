@@ -1043,12 +1043,35 @@ export default function PembayaranPage() {
         </CardHeader>
 
         <CardContent className="space-y-5">
-          <div className="flex flex-col md:flex-row gap-3">
+          <div>
+            <Label>Cari Siswa</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  placeholder="Cari nama siswa..."
+                  className="pl-9"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") getSiswa()
+                  }}
+                />
+              </div>
+
+              <Button onClick={getSiswa}>
+                <Search className="w-4 h-4 mr-2" />
+                Cari
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {isAdminKeuangan(user) && (
-              <div className="max-w-xs w-full">
+              <div>
                 <Label>Tingkat</Label>
                 <Select value={tingkat} onValueChange={setTingkat}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Pilih tingkat" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1062,10 +1085,10 @@ export default function PembayaranPage() {
               </div>
             )}
 
-            <div className="max-w-xs w-full">
+            <div>
               <Label>Tahun Ajaran</Label>
               <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tahun ajaran" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1077,34 +1100,7 @@ export default function PembayaranPage() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex-1">
-              <Label>Cari Siswa</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    placeholder="Cari nama siswa..."
-                    className="pl-9"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") getSiswa()
-                    }}
-                  />
-                </div>
-
-                <Button onClick={getSiswa}>
-                  <Search className="w-4 h-4 mr-2" />
-                  Cari
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label>Kelas</Label>
               <Select
@@ -1112,7 +1108,7 @@ export default function PembayaranPage() {
                 onValueChange={setIdKelas}
                 disabled={loadingKelas}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kelas" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1129,7 +1125,7 @@ export default function PembayaranPage() {
             <div>
               <Label>Bulan Tagihan SPP</Label>
               <Select value={bulanFilter} onValueChange={setBulanFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih bulan tagihan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1149,7 +1145,7 @@ export default function PembayaranPage() {
               Kolom Tunggakan
             </Label>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
               <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
                 <Checkbox
                   checked={showPpdb}
