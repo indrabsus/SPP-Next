@@ -167,8 +167,8 @@ export default function DashboardLayout({
 
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 border-r transition-all duration-300
-          bg-secondary/90 backdrop-blur-xl dark:bg-slate-950/90 dark:border-slate-800
+          dark fixed inset-y-0 left-0 z-50 border-r border-slate-800 text-foreground transition-all duration-300
+          bg-slate-950/95 backdrop-blur-xl
           w-72 ${sidebarWidth}
           ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
@@ -326,7 +326,7 @@ export default function DashboardLayout({
       </aside>
 
       <section className={`transition-all duration-300 ${contentPadding}`}>
-        <header className="sticky top-0 z-30 h-16 border-b flex items-center justify-between px-4 md:px-6 bg-secondary/85 backdrop-blur-xl dark:bg-slate-950/60 dark:border-slate-800">
+        <header className="dark sticky top-0 z-30 h-16 border-b border-slate-800 text-foreground flex items-center justify-between px-4 md:px-6 bg-slate-950/90 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
