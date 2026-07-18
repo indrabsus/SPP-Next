@@ -62,6 +62,11 @@ type LogSpp = {
         nama_kelas: string
       }
     }
+    kelas_terkini?: {
+      tingkat?: number | string
+      nama_kelas?: string
+      tahun_ajaran?: string | null
+    } | null
   }
 }
 
@@ -264,9 +269,14 @@ export default function DashboardPage() {
 
     logs.filter(isUangMasuk).forEach((item) => {
       const tingkat =
-        item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat || item.kelas || "-"
+        item.siswa_ppdb?.kelas_terkini?.tingkat ||
+        item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat ||
+        item.kelas ||
+        "-"
       const namaKelas =
-        item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas || "-"
+        item.siswa_ppdb?.kelas_terkini?.nama_kelas ||
+        item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas ||
+        "-"
 
       const kelas = `${tingkat} ${namaKelas}`
       const current = map.get(kelas) || 0
@@ -579,9 +589,11 @@ export default function DashboardPage() {
                       const nama =
                         item.siswa_ppdb?.nama_lengkap || "Tanpa Nama"
                       const kelas =
+                        item.siswa_ppdb?.kelas_terkini?.nama_kelas ||
                         item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.nama_kelas ||
                         "-"
                       const tingkat =
+                        item.siswa_ppdb?.kelas_terkini?.tingkat ||
                         item.siswa_ppdb?.siswa_baru?.kelas_ppdb?.tingkat ||
                         item.kelas
                       const inisial = nama.charAt(0).toUpperCase()
