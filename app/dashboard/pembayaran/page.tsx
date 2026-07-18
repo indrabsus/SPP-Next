@@ -243,6 +243,18 @@ const formatTanggal = (value: string) => {
   })
 }
 
+const normalizeNoHp = (value?: string | null) => {
+  if (!value) return ""
+
+  let hasil = value.replace(/[+\s]/g, "")
+
+  if (hasil.startsWith("0")) {
+    hasil = "62" + hasil.slice(1)
+  }
+
+  return hasil
+}
+
 const getLabelBulan = (bulanValue: number) => {
   const found = bulanSpp.find((item) => item.value === String(bulanValue))
   return found?.label || "-"
@@ -954,7 +966,8 @@ export default function PembayaranPage() {
   }
 
   const getNomorWa = (siswa: Siswa, pilihan: "siswa" | "ortu") => {
-    return pilihan === "siswa" ? siswa.no_hp : siswa.no_hp_ortu
+    const raw = pilihan === "siswa" ? siswa.no_hp : siswa.no_hp_ortu
+    return raw ? normalizeNoHp(raw) : ""
   }
 
   const kirimWa = async () => {
@@ -1313,7 +1326,7 @@ export default function PembayaranPage() {
                             siswa.no_hp ? "" : "text-red-600 dark:text-red-400"
                           }
                         >
-                          WA: {siswa.no_hp || "Belum diisi"}
+                          WA: {siswa.no_hp ? normalizeNoHp(siswa.no_hp) : "Belum diisi"}
                         </span>
                         <span className="mx-1">·</span>
                         <span
@@ -1323,7 +1336,10 @@ export default function PembayaranPage() {
                               : "text-red-600 dark:text-red-400"
                           }
                         >
-                          WA Ortu: {siswa.no_hp_ortu || "Belum diisi"}
+                          WA Ortu:{" "}
+                          {siswa.no_hp_ortu
+                            ? normalizeNoHp(siswa.no_hp_ortu)
+                            : "Belum diisi"}
                         </span>
                       </div>
                     </TableCell>
@@ -1699,11 +1715,16 @@ export default function PembayaranPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="siswa" disabled={!siswa.no_hp}>
-                          WA Siswa {siswa.no_hp ? `(${siswa.no_hp})` : "(kosong)"}
+                          WA Siswa{" "}
+                          {siswa.no_hp
+                            ? `(${normalizeNoHp(siswa.no_hp)})`
+                            : "(kosong)"}
                         </SelectItem>
                         <SelectItem value="ortu" disabled={!siswa.no_hp_ortu}>
                           WA Ortu{" "}
-                          {siswa.no_hp_ortu ? `(${siswa.no_hp_ortu})` : "(kosong)"}
+                          {siswa.no_hp_ortu
+                            ? `(${normalizeNoHp(siswa.no_hp_ortu)})`
+                            : "(kosong)"}
                         </SelectItem>
                       </SelectContent>
                     </Select>
