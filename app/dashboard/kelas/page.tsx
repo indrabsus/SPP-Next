@@ -449,7 +449,7 @@ export default function KelasPage() {
             <div>
               <Label>Tahun Ajaran</Label>
               <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tahun ajaran" />
                 </SelectTrigger>
                 <SelectContent>

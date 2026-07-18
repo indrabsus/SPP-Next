@@ -234,7 +234,7 @@ Log PPDB: ${data.log_ppdb.inserted} masuk, ${data.log_ppdb.skipped} dilewati`
             <div className="flex-1">
               <Label>Tahun Ajaran</Label>
               <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tahun ajaran" />
                 </SelectTrigger>
                 <SelectContent>

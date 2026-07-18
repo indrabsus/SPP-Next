@@ -1491,7 +1491,7 @@ export default function PembayaranPage() {
               <div>
                 <Label>Jenis Pembayaran</Label>
                 <Select value={bulan} onValueChange={handleChangeJenisPembayaran}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Pilih jenis pembayaran" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1556,7 +1556,7 @@ export default function PembayaranPage() {
                   value={bayar}
                   onValueChange={(value: any) => setBayar(value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Pilih metode pembayaran" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1706,7 +1706,7 @@ export default function PembayaranPage() {
                         }))
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

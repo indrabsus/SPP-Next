@@ -470,7 +470,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
             <div>
               <Label>Tahun Siswa</Label>
               <Select value={tahun} onValueChange={setTahun}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tahun" />
                 </SelectTrigger>
                 <SelectContent>
@@ -490,7 +490,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
             <div>
               <Label>Jenis</Label>
               <Select value={jenis} onValueChange={setJenis}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih jenis" />
                 </SelectTrigger>
                 <SelectContent>
@@ -505,7 +505,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
             <div>
               <Label>Tahun Ajaran</Label>
               <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tahun ajaran" />
                 </SelectTrigger>
                 <SelectContent>
@@ -521,7 +521,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
             <div>
               <Label>Metode Bayar</Label>
               <Select value={metode} onValueChange={setMetode}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih metode bayar" />
                 </SelectTrigger>
                 <SelectContent>

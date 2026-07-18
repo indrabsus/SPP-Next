@@ -340,7 +340,7 @@ export default function LogLainnyaPage() {
           <div>
             <Label>Status</Label>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Pilih status" />
               </SelectTrigger>
               <SelectContent>
@@ -354,7 +354,7 @@ export default function LogLainnyaPage() {
           <div>
             <Label>Via</Label>
             <Select value={filterVia} onValueChange={setFilterVia}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Pilih via" />
               </SelectTrigger>
               <SelectContent>
@@ -496,7 +496,7 @@ export default function LogLainnyaPage() {
                 value={status}
                 onValueChange={(value: "m" | "k") => setStatus(value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -512,7 +512,7 @@ export default function LogLainnyaPage() {
                 value={via}
                 onValueChange={(value: "cash" | "trf") => setVia(value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih via" />
                 </SelectTrigger>
                 <SelectContent>

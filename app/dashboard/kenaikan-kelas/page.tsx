@@ -457,7 +457,7 @@ export default function KenaikanKelasPage() {
             <div>
               <Label>Tingkat Asal</Label>
               <Select value={tingkatAsal} onValueChange={setTingkatAsal}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tingkat asal" />
                 </SelectTrigger>
                 <SelectContent>
@@ -473,7 +473,7 @@ export default function KenaikanKelasPage() {
             <div>
               <Label>Tingkat Tujuan</Label>
               <Select value={tingkatTujuan} onValueChange={setTingkatTujuan}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tingkat tujuan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -630,7 +630,7 @@ export default function KenaikanKelasPage() {
           <div>
             <Label>Kelas Tujuan</Label>
             <Select value={kelasTerpilih} onValueChange={setKelasTerpilih}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Pilih kelas" />
               </SelectTrigger>
               <SelectContent>

@@ -720,7 +720,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
                 onValueChange={setTingkat}
                 disabled={!isAdminKeuangan(user)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tingkat" />
                 </SelectTrigger>
                 <SelectContent>
@@ -746,7 +746,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
             <div>
               <Label>Tahun Ajaran</Label>
               <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tahun ajaran" />
                 </SelectTrigger>
                 <SelectContent>
@@ -762,7 +762,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
             <div>
               <Label>Metode Bayar</Label>
               <Select value={metode} onValueChange={setMetode}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih metode bayar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1114,7 +1114,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
                   setBayarBaru(value as "csh" | "trf" | "sbs")
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih status pembayaran" />
                 </SelectTrigger>
                 <SelectContent>

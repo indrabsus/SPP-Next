@@ -714,7 +714,7 @@ export default function LaporanPage() {
               <div>
                 <Label>Tingkat</Label>
                 <Select value={tingkat} onValueChange={setTingkat}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Pilih tingkat" />
                   </SelectTrigger>
                   <SelectContent>
@@ -731,7 +731,7 @@ export default function LaporanPage() {
             <div>
               <Label>Tahun Ajaran</Label>
               <Select value={tahunAjaran} onValueChange={setTahunAjaran}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tahun ajaran" />
                 </SelectTrigger>
                 <SelectContent>
@@ -747,7 +747,7 @@ export default function LaporanPage() {
             <div>
               <Label>Kelas</Label>
               <Select value={idKelas} onValueChange={setIdKelas}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kelas" />
                 </SelectTrigger>
                 <SelectContent>
@@ -775,7 +775,7 @@ export default function LaporanPage() {
             <div>
               <Label>Bulan Tagihan SPP</Label>
               <Select value={bulanFilter} onValueChange={setBulanFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih bulan tagihan" />
                 </SelectTrigger>
                 <SelectContent>
