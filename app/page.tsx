@@ -107,7 +107,7 @@ export default function LoginPage() {
         </div>
 
         {/* Form panel */}
-        <div className="flex w-full flex-col justify-center bg-white px-6 py-10 sm:px-10 md:w-1/2 dark:bg-slate-900">
+        <div className="flex w-full flex-col justify-center bg-card px-6 py-10 sm:px-10 md:w-1/2 dark:bg-slate-900">
           <div className="mb-8 flex items-center gap-2.5 md:hidden">
             <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Wallet className="size-5" />

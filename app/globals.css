@@ -4,29 +4,33 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: 210 25% 96%;
-  --foreground: 222.2 84% 4.9%;
+  --background: 30 20% 95%;
+  --foreground: 20 14% 15%;
 
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card: 30 25% 98%;
+  --card-foreground: 20 14% 15%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
+  --popover: 30 25% 98%;
+  --popover-foreground: 20 14% 15%;
 
   --primary: 221.2 83.2% 53.3%;
   --primary-foreground: 210 40% 98%;
 
-  --secondary: 210 30% 94%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 30 18% 92%;
+  --secondary-foreground: 20 14% 18%;
 
-  --muted: 210 30% 94%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 30 18% 92%;
+  --muted-foreground: 25 10% 42%;
 
-  --accent: 210 30% 94%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent: 30 18% 92%;
+  --accent-foreground: 20 14% 18%;
 
-  --border: 214 25% 88%;
-  --input: 214 25% 88%;
+  --destructive: 0 65% 48%;
+  --destructive-foreground: 30 25% 98%;
+
+  --border: 30 15% 86%;
+  --input: 30 15% 86%;
+  --ring: 221.2 83.2% 53.3%;
 
   --radius: 0.9rem;
 }
@@ -113,10 +117,15 @@ body:not(.dark) {
   background:
     radial-gradient(
       circle at top left,
-      rgba(59, 130, 246, 0.04),
+      rgba(217, 119, 6, 0.05),
       transparent 30%
     ),
-    #f1f5f9;
+    radial-gradient(
+      circle at bottom right,
+      rgba(180, 83, 9, 0.04),
+      transparent 32%
+    ),
+    #f6f1ea;
 }
 
 /* =======================================================
