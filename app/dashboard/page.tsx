@@ -9,6 +9,7 @@ import {
   FileText,
   GraduationCap,
   Loader2,
+  MessageCircle,
   PieChart as PieChartIcon,
   RefreshCcw,
   ShieldCheck,
@@ -76,6 +77,20 @@ type Siswa = {
   tahun: number
 }
 
+type WaChat = {
+  id: string
+  name: string
+  isGroup: boolean
+  unreadCount: number
+  timestamp: number
+  lastMessage: {
+    body: string
+    fromMe: boolean
+    timestamp: number
+    hasMedia: boolean
+  } | null
+}
+
 const bulanLabel: Record<number, string> = {
   1: "Juli",
   2: "Agustus",
@@ -132,6 +147,22 @@ const isUangMasuk = (item: LogSpp) => {
   return item.bayar === "csh" || item.bayar === "trf"
 }
 
+const formatWaktuChat = (timestamp: number) => {
+  if (!timestamp) return "-"
+
+  const date = new Date(timestamp * 1000)
+  const now = new Date()
+
+  if (formatDateOnly(date) === formatDateOnly(now)) {
+    return date.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" })
+}
+
 export default function DashboardPage() {
   const router = useRouter()
 
@@ -139,6 +170,8 @@ export default function DashboardPage() {
   const [logs, setLogs] = useState<LogSpp[]>([])
   const [siswa, setSiswa] = useState<Siswa[]>([])
   const [loading, setLoading] = useState(true)
+  const [waChats, setWaChats] = useState<WaChat[]>([])
+  const [waChatsError, setWaChatsError] = useState<string | null>(null)
 
   useEffect(() => {
     const currentUser = getUser()
@@ -183,12 +216,32 @@ export default function DashboardPage() {
     }
   }
 
+  const getWaChats = async () => {
+    if (!user) return
+
+    try {
+      const res = await apiFetch("/wa/chats")
+      setWaChats(res.data || [])
+      setWaChatsError(null)
+    } catch (error: any) {
+      setWaChats([])
+      setWaChatsError(error.message || "WhatsApp belum terhubung.")
+    }
+  }
+
   useEffect(() => {
     if (user) {
       getDashboardData()
+      getWaChats()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
+
+  const waChatsTerakhir = useMemo(() => {
+    return [...waChats]
+      .sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0))
+      .slice(0, 8)
+  }, [waChats])
 
   const stats = useMemo(() => {
     const today = new Date()
@@ -328,7 +381,13 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={getDashboardData}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              getDashboardData()
+              getWaChats()
+            }}
+          >
             <RefreshCcw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -521,7 +580,7 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <Card className="dashboard-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -626,6 +685,72 @@ export default function DashboardPage() {
                           >
                             {formatRupiah(item.nominal)}
                           </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5" />
+                  Percakapan WA Terakhir
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent>
+                {waChatsError ? (
+                  <p className="text-sm text-muted-foreground">
+                    {waChatsError}
+                  </p>
+                ) : waChatsTerakhir.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Belum ada percakapan.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {waChatsTerakhir.map((chat) => {
+                      const inisial = (chat.name || "?").charAt(0).toUpperCase()
+                      const preview = chat.lastMessage
+                        ? `${chat.lastMessage.fromMe ? "Anda: " : ""}${
+                            chat.lastMessage.hasMedia && !chat.lastMessage.body
+                              ? "[Media]"
+                              : chat.lastMessage.body || "-"
+                          }`
+                        : "Belum ada pesan"
+
+                      return (
+                        <div
+                          key={chat.id}
+                          className="dashboard-soft-card flex items-center justify-between gap-3 rounded-xl p-3"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                              {inisial}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">
+                                {chat.name}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {preview}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <p className="text-xs text-muted-foreground">
+                              {formatWaktuChat(chat.timestamp)}
+                            </p>
+                            {chat.unreadCount > 0 && (
+                              <Badge className="h-5 px-1.5">
+                                {chat.unreadCount}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       )
                     })}
