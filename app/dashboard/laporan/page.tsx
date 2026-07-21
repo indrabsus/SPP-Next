@@ -70,7 +70,6 @@ type Siswa = {
 }
 
 type Kelas = {
-  id_kelas: string
   tingkat: number | string
   nama_kelas: string
 }
@@ -176,13 +175,13 @@ export default function LaporanPage() {
   const [user, setUser] = useState<UserLogin | null>(null)
 
   const [tingkat, setTingkat] = useState("")
-  const [idKelas, setIdKelas] = useState("")
+  const [namaKelasFilter, setNamaKelasFilter] = useState("")
   const [tahunAjaran, setTahunAjaran] = useState("")
   const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
   const [keyword, setKeyword] = useState("")
   const [bulanFilter, setBulanFilter] = useState(getBulanSekarangSpp())
 
-  const [kelas, setKelas] = useState<Kelas[]>([])
+  const [kelasSemua, setKelasSemua] = useState<Kelas[]>([])
   const [siswa, setSiswa] = useState<Siswa[]>([])
   const [masterSpp, setMasterSpp] = useState<Record<number, MasterSpp>>({})
   const [masterPpdb, setMasterPpdb] = useState<Record<number, MasterPpdb>>({})
@@ -269,15 +268,26 @@ export default function LaporanPage() {
     return false
   }
 
-  const getKelas = async (tingkatValue: string) => {
+  const getKelasSemua = async (tahunAjaranValue: string) => {
+    if (!tahunAjaranValue) return
+
     try {
-      const res = await apiFetch(`/kelas/data/${tingkatValue}`)
-      setKelas(res.data || [])
-      setIdKelas("")
+      const res = await apiFetch(
+        `/riwayat-kelas/kelas-list?tahun_ajaran=${encodeURIComponent(tahunAjaranValue)}`
+      )
+      setKelasSemua(res.data || [])
     } catch (error: any) {
       alert(error.message || "Gagal mengambil data kelas")
     }
   }
+
+  // Daftar kelas untuk dropdown - dari riwayat_kelas (bukan kelas_ppdb)
+  // supaya selalu sinkron dengan kelas yang benar-benar dipakai siswa di
+  // tahun ajaran terpilih, disaring ke tingkat yang dipilih.
+  const kelas = useMemo(
+    () => kelasSemua.filter((item) => String(item.tingkat) === tingkat),
+    [kelasSemua, tingkat]
+  )
 
   const getMasterSpp = async (tahun: number) => {
     if (!tahun) return null
@@ -323,7 +333,7 @@ export default function LaporanPage() {
       return
     }
 
-    if (!idKelas) {
+    if (!namaKelasFilter) {
       alert("Pilih kelas terlebih dahulu")
       return
     }
@@ -333,7 +343,7 @@ export default function LaporanPage() {
     try {
       const params = new URLSearchParams()
       params.set("tingkat", tingkat)
-      params.set("id_kelas", idKelas)
+      params.set("nama_kelas", namaKelasFilter)
 
       if (tahunAjaran) {
         params.set("tahun_ajaran", tahunAjaran)
@@ -364,8 +374,8 @@ export default function LaporanPage() {
   useEffect(() => {
     if (tingkat) {
       setSiswa([])
+      setNamaKelasFilter("")
       resetExtraTagihanByTingkat(tingkat)
-      getKelas(tingkat)
 
       if (
         tingkat === "12" &&
@@ -376,6 +386,11 @@ export default function LaporanPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tingkat])
+
+  useEffect(() => {
+    if (tahunAjaran) getKelasSemua(tahunAjaran)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tahunAjaran])
 
   const getTingkatSiswa = (item: Siswa) => {
     return String(item.kelas_terkini?.tingkat || tingkat)
@@ -770,13 +785,13 @@ export default function LaporanPage() {
 
             <div>
               <Label>Kelas</Label>
-              <Select value={idKelas} onValueChange={setIdKelas}>
+              <Select value={namaKelasFilter} onValueChange={setNamaKelasFilter}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kelas" />
                 </SelectTrigger>
                 <SelectContent>
                   {kelas.map((item) => (
-                    <SelectItem key={item.id_kelas} value={item.id_kelas}>
+                    <SelectItem key={item.nama_kelas} value={item.nama_kelas}>
                       {item.nama_kelas}
                     </SelectItem>
                   ))}

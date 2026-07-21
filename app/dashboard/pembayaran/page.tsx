@@ -106,7 +106,6 @@ type Siswa = {
 }
 
 type Kelas = {
-  id_kelas: string
   tingkat: number | string
   nama_kelas: string
 }
@@ -303,14 +302,14 @@ export default function PembayaranPage() {
   const [user, setUser] = useState<UserLogin | null>(null)
 
   const [tingkat, setTingkat] = useState("")
-  const [idKelas, setIdKelas] = useState("semua")
+  const [namaKelasFilter, setNamaKelasFilter] = useState("semua")
   const [tahunAjaran, setTahunAjaran] = useState("")
   const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
   const [keyword, setKeyword] = useState("")
   const [bulanFilter, setBulanFilter] = useState(getBulanSekarangSpp())
   const [showPpdb, setShowPpdb] = useState(false)
 
-  const [kelas, setKelas] = useState<Kelas[]>([])
+  const [kelasSemua, setKelasSemua] = useState<Kelas[]>([])
   const [dataSiswa, setDataSiswa] = useState<Siswa[]>([])
   const [masterSpp, setMasterSpp] = useState<Record<number, MasterSpp>>({})
   const [masterPpdb, setMasterPpdb] = useState<Record<number, MasterPpdb>>({})
@@ -432,20 +431,30 @@ export default function PembayaranPage() {
     return false
   }
 
-  const getKelas = async (tingkatValue: string) => {
-    if (!tingkatValue) return
+  const getKelasSemua = async (tahunAjaranValue: string) => {
+    if (!tahunAjaranValue) return
 
     setLoadingKelas(true)
 
     try {
-      const res = await apiFetch(`/kelas/data/${tingkatValue}`)
-      setKelas(res.data || [])
+      const res = await apiFetch(
+        `/riwayat-kelas/kelas-list?tahun_ajaran=${encodeURIComponent(tahunAjaranValue)}`
+      )
+      setKelasSemua(res.data || [])
     } catch (error: any) {
       alert(error.message || "Gagal mengambil data kelas")
     } finally {
       setLoadingKelas(false)
     }
   }
+
+  // Daftar kelas untuk dropdown - diambil dari riwayat_kelas (bukan
+  // kelas_ppdb) supaya selalu sinkron dengan kelas yang benar-benar dipakai
+  // siswa di tahun ajaran terpilih, dan disaring ke tingkat yang dipilih.
+  const kelas = useMemo(
+    () => kelasSemua.filter((item) => String(item.tingkat) === tingkat),
+    [kelasSemua, tingkat]
+  )
 
   const getMasterSpp = async (tahun: number) => {
     if (!tahun) return null
@@ -498,8 +507,8 @@ export default function PembayaranPage() {
         params.set("tahun_ajaran", tahunAjaran)
       }
 
-      if (idKelas !== "semua") {
-        params.set("id_kelas", idKelas)
+      if (namaKelasFilter !== "semua") {
+        params.set("nama_kelas", namaKelasFilter)
       }
 
       if (keyword.trim()) {
@@ -541,9 +550,8 @@ export default function PembayaranPage() {
 
   useEffect(() => {
     if (tingkat) {
-      setIdKelas("semua")
+      setNamaKelasFilter("semua")
       resetExtraTagihanByTingkat(tingkat)
-      getKelas(tingkat)
 
       if (
         tingkat === "12" &&
@@ -556,11 +564,16 @@ export default function PembayaranPage() {
   }, [tingkat])
 
   useEffect(() => {
+    if (tahunAjaran) getKelasSemua(tahunAjaran)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tahunAjaran])
+
+  useEffect(() => {
     if (tingkat && tahunAjaran) {
       getSiswa()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tingkat, idKelas, tahunAjaran])
+  }, [tingkat, namaKelasFilter, tahunAjaran])
 
   const getTingkatSiswa = (siswa: Siswa) => {
     return String(siswa.kelas_terkini?.tingkat || tingkat)
@@ -1181,8 +1194,8 @@ export default function PembayaranPage() {
             <div>
               <Label>Kelas</Label>
               <Select
-                value={idKelas}
-                onValueChange={setIdKelas}
+                value={namaKelasFilter}
+                onValueChange={setNamaKelasFilter}
                 disabled={loadingKelas}
               >
                 <SelectTrigger className="w-full">
@@ -1191,7 +1204,7 @@ export default function PembayaranPage() {
                 <SelectContent>
                   <SelectItem value="semua">Semua Kelas</SelectItem>
                   {kelas.map((item) => (
-                    <SelectItem key={item.id_kelas} value={item.id_kelas}>
+                    <SelectItem key={item.nama_kelas} value={item.nama_kelas}>
                       {item.nama_kelas}
                     </SelectItem>
                   ))}

@@ -75,7 +75,6 @@ type Siswa = {
 }
 
 type Kelas = {
-  id_kelas: string
   tingkat: number | string
   nama_kelas: string
 }
@@ -108,13 +107,13 @@ export default function LaporanKeuanganPage() {
   const [user, setUser] = useState<UserLogin | null>(null)
 
   const [tingkat, setTingkat] = useState("")
-  const [idKelas, setIdKelas] = useState("semua")
+  const [namaKelasFilter, setNamaKelasFilter] = useState("semua")
   const [tahunAjaran, setTahunAjaran] = useState("")
   const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
 
-  const [kelas, setKelas] = useState<Kelas[]>([])
+  const [kelasSemua, setKelasSemua] = useState<Kelas[]>([])
   const [siswa, setSiswa] = useState<Siswa[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -140,25 +139,39 @@ export default function LaporanKeuanganPage() {
 
   const allowedTingkat = user ? getAllowedTingkat(user) : []
 
-  const getKelas = async (tingkatValue: string) => {
-    if (!tingkatValue) return
+  const getKelasSemua = async (tahunAjaranValue: string) => {
+    if (!tahunAjaranValue) return
 
     try {
-      const res = await apiFetch(`/kelas/data/${tingkatValue}`)
-      setKelas(res.data || [])
-      setIdKelas("semua")
+      const res = await apiFetch(
+        `/riwayat-kelas/kelas-list?tahun_ajaran=${encodeURIComponent(tahunAjaranValue)}`
+      )
+      setKelasSemua(res.data || [])
     } catch (error: any) {
       alert(error.message || "Gagal mengambil kelas")
     }
   }
 
+  // Daftar kelas untuk dropdown - dari riwayat_kelas (bukan kelas_ppdb)
+  // supaya selalu sinkron dengan kelas yang benar-benar dipakai siswa di
+  // tahun ajaran terpilih, disaring ke tingkat yang dipilih.
+  const kelas = useMemo(
+    () => kelasSemua.filter((item) => String(item.tingkat) === tingkat),
+    [kelasSemua, tingkat]
+  )
+
   useEffect(() => {
     if (tingkat) {
-      getKelas(tingkat)
+      setNamaKelasFilter("semua")
       setSiswa([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tingkat])
+
+  useEffect(() => {
+    if (tahunAjaran) getKelasSemua(tahunAjaran)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tahunAjaran])
 
   const getLaporan = async () => {
     if (!tingkat) {
@@ -181,8 +194,8 @@ export default function LaporanKeuanganPage() {
         params.set("tahun_ajaran", tahunAjaran)
       }
 
-      if (idKelas !== "semua") {
-        params.set("id_kelas", idKelas)
+      if (namaKelasFilter !== "semua") {
+        params.set("nama_kelas", namaKelasFilter)
       }
 
       const res = await apiFetch(`/spp/siswa?${params.toString()}`)
@@ -458,14 +471,14 @@ export default function LaporanKeuanganPage() {
 
             <div>
               <Label>Kelas</Label>
-              <Select value={idKelas} onValueChange={setIdKelas}>
+              <Select value={namaKelasFilter} onValueChange={setNamaKelasFilter}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kelas" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="semua">Semua Kelas</SelectItem>
                   {kelas.map((item) => (
-                    <SelectItem key={item.id_kelas} value={item.id_kelas}>
+                    <SelectItem key={item.nama_kelas} value={item.nama_kelas}>
                       {item.nama_kelas}
                     </SelectItem>
                   ))}
@@ -510,10 +523,7 @@ export default function LaporanKeuanganPage() {
           <h1 className="text-xl font-bold">LAPORAN KEUANGAN SPP & PPDB</h1>
           <p>
             Tingkat: {tingkat || "-"} | Kelas:{" "}
-            {idKelas === "semua"
-              ? "Semua Kelas"
-              : kelas.find((item) => item.id_kelas === idKelas)?.nama_kelas ||
-                "-"}
+            {namaKelasFilter === "semua" ? "Semua Kelas" : namaKelasFilter}
           </p>
           <p>
             Periode: {startDate} s.d. {endDate}
