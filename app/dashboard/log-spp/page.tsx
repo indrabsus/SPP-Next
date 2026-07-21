@@ -122,6 +122,36 @@ const bayarLabel: Record<string, string> = {
   sbs: "Dibebaskan",
 }
 
+type KategoriLaporan = "spp" | "daftar_ulang" | "pkl" | "ujian_akhir"
+
+// Kategori laporan didasarkan pada kode log_spp.bulan: 1-12 SPP bulanan,
+// 13-15 tunggakan SPP per tingkat, 16-17 daftar ulang, 18 PKL, 19 ujian akhir.
+const KATEGORI_LAPORAN: Record<
+  KategoriLaporan,
+  { label: string; judul: string; bulan: number[] }
+> = {
+  spp: {
+    label: "Laporan SPP",
+    judul: "Laporan SPP (SPP Perbulan & Tunggakan SPP)",
+    bulan: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  },
+  daftar_ulang: {
+    label: "Daftar Ulang",
+    judul: "Laporan Daftar Ulang",
+    bulan: [16, 17],
+  },
+  pkl: {
+    label: "PKL",
+    judul: "Laporan PKL",
+    bulan: [18],
+  },
+  ujian_akhir: {
+    label: "Ujian Akhir",
+    judul: "Laporan Ujian Akhir",
+    bulan: [19],
+  },
+}
+
 const formatRupiah = (value: number) => {
   return `Rp ${Number(value || 0).toLocaleString("id-ID")}`
 }
@@ -178,6 +208,8 @@ export default function LogSppPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
   const [openPrint, setOpenPrint] = useState(false)
+  const [kategoriLaporan, setKategoriLaporan] =
+    useState<KategoriLaporan>("spp")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [loadingLaporan, setLoadingLaporan] = useState(false)
@@ -365,8 +397,9 @@ const openModalBukti = (bukti: string | null | undefined) => {
     return result
   }, [data, sortKey, sortDirection])
 
-  const bukaPrint = () => {
+  const bukaPrint = (kategori: KategoriLaporan) => {
     const today = new Date().toISOString().slice(0, 10)
+    setKategoriLaporan(kategori)
     setStartDate(filterStartDate || today)
     setEndDate(filterEndDate || today)
     setOpenPrint(true)
@@ -389,18 +422,25 @@ const openModalBukti = (bukti: string | null | undefined) => {
     setLoadingLaporan(true)
 
     try {
-      // Filter tanggal dilakukan di frontend (bukan backend) - endpoint
-      // /spp/log diambil apa adanya lalu disaring created_at-nya di sini,
-      // supaya fitur ini tidak bergantung pada deploy backend.
+      // Filter tanggal & kategori dilakukan di frontend (bukan backend) -
+      // endpoint /spp/log diambil apa adanya lalu disaring created_at dan
+      // log_spp.bulan-nya di sini, supaya fitur ini tidak bergantung pada
+      // deploy backend.
       const params = new URLSearchParams()
       params.set("limit", "100000")
 
       const res = await apiFetch(`/spp/log?${params.toString()}`)
       const semuaRows: LogSpp[] = res?.data || []
 
+      const bulanKategori = KATEGORI_LAPORAN[kategoriLaporan].bulan
+
       const rows = semuaRows.filter((item) => {
         const tanggal = getTanggalLokal(item.created_at)
-        return tanggal >= startDate && tanggal <= endDate
+        return (
+          tanggal >= startDate &&
+          tanggal <= endDate &&
+          bulanKategori.includes(Number(item.bulan))
+        )
       })
 
       if (rows.length === 0) {
@@ -425,7 +465,10 @@ const openModalBukti = (bukti: string | null | undefined) => {
     // PDF" di dialog print - diganti sementara biar nama filenya ikut
     // rentang tanggal laporan, bukan judul aplikasi yang generik.
     const originalTitle = document.title
-    const namaFile = `Laporan-SPP_${laporanRange.start.split("-").reverse().join("-")}_sd_${laporanRange.end
+    const namaFile = `${KATEGORI_LAPORAN[kategoriLaporan].label.replace(
+      /\s+/g,
+      "-"
+    )}_${laporanRange.start.split("-").reverse().join("-")}_sd_${laporanRange.end
       .split("-")
       .reverse()
       .join("-")}`
@@ -445,7 +488,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
       window.removeEventListener("afterprint", restoreTitle)
       document.title = originalTitle
     }
-  }, [laporanData, laporanRange])
+  }, [laporanData, laporanRange, kategoriLaporan])
 
   const formatTanggalSingkat = (value: string) => {
     if (!value) return "-"
@@ -679,10 +722,14 @@ const openModalBukti = (bukti: string | null | undefined) => {
           </p>
         </div>
 
-        <Button onClick={bukaPrint}>
-          <Printer className="w-4 h-4 mr-2" />
-          Print Laporan
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(KATEGORI_LAPORAN) as KategoriLaporan[]).map((key) => (
+            <Button key={key} onClick={() => bukaPrint(key)}>
+              <Printer className="w-4 h-4 mr-2" />
+              {KATEGORI_LAPORAN[key].label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <Card>
@@ -1020,7 +1067,9 @@ const openModalBukti = (bukti: string | null | undefined) => {
       <Dialog open={openPrint} onOpenChange={setOpenPrint}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Print Laporan Harian SPP</DialogTitle>
+            <DialogTitle>
+              Print {KATEGORI_LAPORAN[kategoriLaporan].label}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -1252,7 +1301,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
               <div className="flex-1 text-center">
                 <p className="font-bold text-base">SMK SANGKURIANG 1 CIMAHI</p>
                 <p className="text-xs">
-                  Laporan Pembayaran SPP - Periode{" "}
+                  {KATEGORI_LAPORAN[kategoriLaporan].judul} - Periode{" "}
                   {formatTanggalSingkat(laporanRange.start)} s/d{" "}
                   {formatTanggalSingkat(laporanRange.end)}
                 </p>
