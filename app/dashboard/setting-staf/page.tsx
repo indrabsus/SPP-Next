@@ -1,11 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Loader2, ShieldAlert } from "lucide-react"
+import { CheckCircle2, Loader2, ShieldAlert, XCircle } from "lucide-react"
 
 import { apiFetch } from "@/lib/api"
 import { getUser, isAdminKeuangan, UserLogin } from "@/lib/auth"
 
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -13,8 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 
 export default function SettingStafPage() {
   const [user, setUser] = useState<UserLogin | null>(null)
@@ -23,11 +22,10 @@ export default function SettingStafPage() {
   const [stafBolehEditHapus, setStafBolehEditHapus] = useState(false)
 
   useEffect(() => {
-    setUser(getUser())
-  }, [])
+    const currentUser = getUser()
+    setUser(currentUser)
 
-  useEffect(() => {
-    if (!user || !isAdminKeuangan(user)) {
+    if (!currentUser || !isAdminKeuangan(currentUser)) {
       setLoading(false)
       return
     }
@@ -38,9 +36,11 @@ export default function SettingStafPage() {
       )
       .catch(() => setStafBolehEditHapus(false))
       .finally(() => setLoading(false))
-  }, [user])
+  }, [])
 
-  const ubahSetting = async (checked: boolean) => {
+  const ubahSetting = async () => {
+    const checked = !stafBolehEditHapus
+
     setSaving(true)
     setStafBolehEditHapus(checked)
 
@@ -49,10 +49,12 @@ export default function SettingStafPage() {
         method: "PUT",
         body: JSON.stringify({ staf_boleh_edit_hapus: checked }),
       })
-    } catch (error: any) {
-      // Gagal simpan - kembalikan tampilan switch ke kondisi semula
+    } catch (error) {
+      // Gagal simpan - kembalikan tampilan ke kondisi semula
       setStafBolehEditHapus(!checked)
-      alert(error.message || "Gagal menyimpan setting")
+      alert(
+        error instanceof Error ? error.message : "Gagal menyimpan setting"
+      )
     } finally {
       setSaving(false)
     }
@@ -105,21 +107,30 @@ export default function SettingStafPage() {
           ) : (
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label htmlFor="staf-edit-hapus">
+                <p className="font-medium">
                   Izinkan staf keuangan edit &amp; hapus
-                </Label>
+                </p>
                 <p className="text-sm text-muted-foreground">
                   Berlaku untuk Log SPP dan Log PPDB, sama untuk semua staf
                   keuangan.
                 </p>
               </div>
 
-              <Switch
-                id="staf-edit-hapus"
-                checked={stafBolehEditHapus}
+              <Button
+                type="button"
+                variant={stafBolehEditHapus ? "default" : "outline"}
                 disabled={saving}
-                onCheckedChange={ubahSetting}
-              />
+                onClick={ubahSetting}
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : stafBolehEditHapus ? (
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                ) : (
+                  <XCircle className="w-4 h-4 mr-2" />
+                )}
+                {stafBolehEditHapus ? "Aktif" : "Nonaktif"}
+              </Button>
             </div>
           )}
         </CardContent>
