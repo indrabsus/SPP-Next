@@ -198,6 +198,7 @@ export default function LogSppPage() {
   const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
   const [filterStartDate, setFilterStartDate] = useState("")
   const [filterEndDate, setFilterEndDate] = useState("")
+  const [stafBolehEditHapus, setStafBolehEditHapus] = useState(false)
 
   const [page, setPage] = useState(1)
   const [limit] = useState(50)
@@ -274,6 +275,12 @@ const openModalBukti = (bukti: string | null | undefined) => {
         setTahunAjaran((prev) => prev || list[0] || "")
       })
       .catch(() => setDaftarTahunAjaran([]))
+  }, [])
+
+  useEffect(() => {
+    apiFetch("/setting/staf-edit-hapus")
+      .then((res) => setStafBolehEditHapus(!!res?.data?.staf_boleh_edit_hapus))
+      .catch(() => setStafBolehEditHapus(false))
   }, [])
 
   const allowedTingkat = user ? getAllowedTingkat(user) : []
@@ -525,8 +532,8 @@ const openModalBukti = (bukti: string | null | undefined) => {
   }
 
   const hapusLog = async (id_logspp: string) => {
-    if (!canDeleteLogSpp(user)) {
-      alert("Akses ditolak. Hanya admin keuangan yang boleh menghapus log.")
+    if (!canDeleteLogSpp(user, stafBolehEditHapus)) {
+      alert("Akses ditolak. Anda tidak punya izin menghapus log.")
       return
     }
 
@@ -1019,7 +1026,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
                             <Pencil className="w-4 h-4" />
                           </Button>
 
-                          {canDeleteLogSpp(user) && (
+                          {canDeleteLogSpp(user, stafBolehEditHapus) && (
                             <Button
                               size="icon-sm"
                               variant="destructive"

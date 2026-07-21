@@ -155,6 +155,7 @@ const [selectedBukti, setSelectedBukti] = useState<string | null>(null)
   const [kodeAksesHapusInput, setKodeAksesHapusInput] = useState("")
   const [loadingHapus, setLoadingHapus] = useState(false)
   const [savingHapus, setSavingHapus] = useState(false)
+  const [stafBolehEditHapus, setStafBolehEditHapus] = useState(false)
 
 const openModalBukti = (bukti: string | null | undefined) => {
   if (!bukti) return
@@ -181,6 +182,12 @@ const openModalBukti = (bukti: string | null | undefined) => {
         setTahunAjaran((prev) => prev || list[0] || "")
       })
       .catch(() => setDaftarTahunAjaran([]))
+  }, [])
+
+  useEffect(() => {
+    apiFetch("/setting/staf-edit-hapus")
+      .then((res) => setStafBolehEditHapus(!!res?.data?.staf_boleh_edit_hapus))
+      .catch(() => setStafBolehEditHapus(false))
   }, [])
 
   const getLogPpdb = async (targetPage = page) => {
@@ -332,8 +339,8 @@ const openModalBukti = (bukti: string | null | undefined) => {
   }
 
   const bukaHapus = async (item: LogPpdb) => {
-    if (!canDeleteLogSpp(user)) {
-      alert("Akses ditolak. Hanya admin keuangan yang boleh menghapus log.")
+    if (!canDeleteLogSpp(user, stafBolehEditHapus)) {
+      alert("Akses ditolak. Anda tidak punya izin menghapus log.")
       return
     }
 
@@ -723,7 +730,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
                             Bukti
                           </Button>
 
-                          {canDeleteLogSpp(user) && (
+                          {canDeleteLogSpp(user, stafBolehEditHapus) && (
                             <Button
                               size="sm"
                               variant="destructive"

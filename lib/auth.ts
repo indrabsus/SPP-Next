@@ -69,6 +69,10 @@ export const getAllowedTingkat = (user: UserLogin | null) => {
   return []
 }
 
-export const canDeleteLogSpp = (user: UserLogin | null) => {
-  return getUsernameRole(user) === "adminkeuangan"
+export const canDeleteLogSpp = (
+  user: UserLogin | null,
+  stafBolehEditHapus = false
+) => {
+  if (getUsernameRole(user) === "adminkeuangan") return true
+  return isAllowedKeuanganUser(user) && stafBolehEditHapus
 }

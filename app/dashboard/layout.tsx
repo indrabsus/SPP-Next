@@ -15,6 +15,7 @@ import {
   PanelLeftOpen,
   ScrollText,
   Settings,
+  ShieldCheck,
   Wallet,
   X,
 } from "lucide-react"
@@ -77,6 +78,12 @@ const allMenus = [
     title: "Kenaikan Kelas",
     href: "/dashboard/kenaikan-kelas",
     icon: ArrowUpCircle,
+    adminOnly: true,
+  },
+  {
+    title: "Setting",
+    href: "/dashboard/setting-staf",
+    icon: ShieldCheck,
     adminOnly: true,
   },
 
