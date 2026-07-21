@@ -527,8 +527,176 @@ const openModalBukti = (bukti: string | null | undefined) => {
 
   const laporanTotalKeseluruhan = laporanTotalTrf + laporanTotalCash
 
-  const printBukti = (id_logspp: string) => {
-    window.open(`https://sakuci.id/${id_logspp}/sppsiswa`, "_blank")
+  const printKuitansi = (item: LogSpp) => {
+    const namaSiswa = item.siswa_ppdb?.nama_lengkap || "-"
+    const kelasSiswa = item.siswa_ppdb?.kelas_terkini
+    const kelas = kelasSiswa
+      ? `${kelasSiswa.tingkat || "-"} ${kelasSiswa.nama_kelas || "-"}`
+      : item.kelas
+        ? `Kelas ${item.kelas}`
+        : "-"
+    const nominal = formatRupiah(item.nominal)
+    const keterangan = bulanLabel[Number(item.bulan)] || "-"
+    const via = bayarLabel[item.bayar] || "-"
+    const tanggal = formatTanggal(item.created_at)
+
+    const html = `
+      <html>
+        <head>
+          <title>Kuitansi - ${namaSiswa}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 24px;
+              color: #0f172a;
+            }
+
+            h1, h2, p {
+              margin: 0;
+            }
+
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+              border-bottom: 2px solid #0f172a;
+              padding-bottom: 12px;
+            }
+
+            .header h1 {
+              font-size: 18px;
+              letter-spacing: 1px;
+            }
+
+            .header p {
+              font-size: 13px;
+              color: #475569;
+              margin-top: 4px;
+            }
+
+            .meta {
+              display: flex;
+              justify-content: space-between;
+              font-size: 12px;
+              color: #475569;
+              margin-bottom: 16px;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 13px;
+              margin-bottom: 24px;
+            }
+
+            td {
+              padding: 8px 4px;
+              border-bottom: 1px solid #e2e8f0;
+            }
+
+            td.label {
+              width: 40%;
+              color: #64748b;
+            }
+
+            td.value {
+              font-weight: bold;
+            }
+
+            .nominal-row td {
+              font-size: 16px;
+              padding-top: 12px;
+            }
+
+            .footer {
+              margin-top: 40px;
+              display: flex;
+              justify-content: flex-end;
+            }
+
+            .ttd {
+              width: 220px;
+              text-align: center;
+              font-size: 13px;
+            }
+
+            .ttd .space {
+              height: 70px;
+            }
+
+            .ttd .nama {
+              font-weight: bold;
+              border-top: 1px solid #0f172a;
+              padding-top: 4px;
+            }
+
+            @media print {
+              body {
+                padding: 12px;
+              }
+            }
+          </style>
+        </head>
+
+        <body>
+          <div class="header">
+            <h1>KUITANSI PEMBAYARAN SPP</h1>
+            <p>SMK Sangkuriang 1 Cimahi</p>
+          </div>
+
+          <div class="meta">
+            <span>No. Kuitansi: ${item.id_logspp}</span>
+            <span>${tanggal}</span>
+          </div>
+
+          <table>
+            <tbody>
+              <tr>
+                <td class="label">Nama Siswa</td>
+                <td class="value">${namaSiswa}</td>
+              </tr>
+              <tr>
+                <td class="label">Kelas</td>
+                <td class="value">${kelas}</td>
+              </tr>
+              <tr>
+                <td class="label">Keterangan</td>
+                <td class="value">${keterangan}</td>
+              </tr>
+              <tr>
+                <td class="label">Via</td>
+                <td class="value">${via}</td>
+              </tr>
+              <tr class="nominal-row">
+                <td class="label">Nominal</td>
+                <td class="value">${nominal}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div class="ttd">
+              <p>Cimahi, ${new Date().toLocaleDateString("id-ID")}</p>
+              <p>Petugas,</p>
+              <div class="space"></div>
+              <p class="nama">________________________</p>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print()
+            }
+          </script>
+        </body>
+      </html>
+    `
+
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+
+    printWindow.document.open()
+    printWindow.document.write(html)
+    printWindow.document.close()
   }
 
   const hapusLog = async (id_logspp: string) => {
@@ -1012,7 +1180,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
                             size="icon-sm"
                             variant="outline"
                             title="Bukti"
-                            onClick={() => printBukti(item.id_logspp)}
+                            onClick={() => printKuitansi(item)}
                           >
                             <Printer className="w-4 h-4" />
                           </Button>
