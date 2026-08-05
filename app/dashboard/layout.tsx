@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  ArrowUpCircle,
   CalendarDays,
   CreditCard,
   FileText,
@@ -72,12 +71,6 @@ const allMenus = [
     title: "Master SPP",
     href: "/dashboard/master-spp",
     icon: Settings,
-    adminOnly: true,
-  },
-  {
-    title: "Kenaikan Kelas",
-    href: "/dashboard/kenaikan-kelas",
-    icon: ArrowUpCircle,
     adminOnly: true,
   },
   {

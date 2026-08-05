@@ -16,6 +16,7 @@ import {
   SlidersHorizontal,
   Trash2,
   Upload,
+  UserCog,
   Users,
   Wallet,
   X,
@@ -87,6 +88,7 @@ type Siswa = {
   id_siswa: string
   nama_lengkap: string
   tahun: number
+  status?: string
   no_hp?: string | null
   no_hp_ortu?: string | null
   log_ppdb?: LogPpdb[]
@@ -172,6 +174,13 @@ const bulanSpp = [
 
 const bulanTagihan = bulanSpp.slice(0, 12)
 const ITEMS_PER_PAGE = 50
+
+const statusSiswaOptions = [
+  { value: "aktif", label: "Aktif" },
+  { value: "nonaktif", label: "Nonaktif" },
+  { value: "keluar", label: "Keluar" },
+  { value: "ppdb", label: "PPDB" },
+]
 
 // Kelas 12 cuma menagih SPP untuk 10 bulan pertama (Juli-April) - Mei & Juni
 // (value "11" & "12") disembunyikan dari pilihan bulan.
@@ -366,6 +375,16 @@ export default function PembayaranPage() {
   } | null>(null)
   const [editNoHpValue, setEditNoHpValue] = useState("")
   const [savingNoHp, setSavingNoHp] = useState(false)
+
+  const [openEditStatus, setOpenEditStatus] = useState(false)
+  const [editStatusTarget, setEditStatusTarget] = useState<Siswa | null>(null)
+  const [editStatusValue, setEditStatusValue] = useState("aktif")
+  const [savingStatus, setSavingStatus] = useState(false)
+
+  const [openPindahKelas, setOpenPindahKelas] = useState(false)
+  const [pindahKelasTarget, setPindahKelasTarget] = useState<Siswa | null>(null)
+  const [pindahKelasValue, setPindahKelasValue] = useState("")
+  const [savingPindahKelas, setSavingPindahKelas] = useState(false)
 
   useEffect(() => {
     const currentUser = getUser()
@@ -1108,6 +1127,82 @@ export default function PembayaranPage() {
     }
   }
 
+  const bukaEditStatus = (siswa: Siswa) => {
+    setEditStatusTarget(siswa)
+    setEditStatusValue(siswa.status || "aktif")
+    setOpenEditStatus(true)
+  }
+
+  const simpanEditStatus = async () => {
+    if (!editStatusTarget) return
+
+    setSavingStatus(true)
+
+    try {
+      await apiFetch("/ppdb/updatesiswa", {
+        method: "PUT",
+        body: JSON.stringify({
+          id_siswa: editStatusTarget.id_siswa,
+          status: editStatusValue,
+        }),
+      })
+
+      alert("Status siswa berhasil disimpan")
+      setOpenEditStatus(false)
+      getSiswa()
+    } catch (error: any) {
+      alert(error.message || "Gagal menyimpan status siswa")
+    } finally {
+      setSavingStatus(false)
+    }
+  }
+
+  const kelasUntukPindah = useMemo(() => {
+    if (!pindahKelasTarget) return []
+
+    const tingkatSiswa = getTingkatSiswa(pindahKelasTarget)
+    return kelasSemua.filter((item) => String(item.tingkat) === tingkatSiswa)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kelasSemua, pindahKelasTarget])
+
+  const bukaPindahKelas = (siswa: Siswa) => {
+    setPindahKelasTarget(siswa)
+    setPindahKelasValue(siswa.kelas_terkini?.nama_kelas || "")
+    setOpenPindahKelas(true)
+  }
+
+  const simpanPindahKelas = async () => {
+    if (!pindahKelasTarget) return
+
+    if (!pindahKelasValue) {
+      alert("Pilih kelas tujuan")
+      return
+    }
+
+    setSavingPindahKelas(true)
+
+    try {
+      await apiFetch("/riwayat-kelas/pindah", {
+        method: "POST",
+        body: JSON.stringify({
+          id_siswa: pindahKelasTarget.id_siswa,
+          tahun_ajaran:
+            pindahKelasTarget.kelas_terkini?.tahun_ajaran || tahunAjaran,
+          tingkat: getTingkatSiswa(pindahKelasTarget),
+          nama_kelas: pindahKelasValue,
+        }),
+      })
+
+      alert("Siswa berhasil dipindahkan kelas")
+      setOpenPindahKelas(false)
+      getSiswa()
+    } catch (error: any) {
+      alert(error.message || "Gagal memindahkan kelas siswa")
+    } finally {
+      setSavingPindahKelas(false)
+    }
+  }
+
   if (!user) return null
 
   return (
@@ -1459,7 +1554,13 @@ export default function PembayaranPage() {
                     </TableCell>
 
                     <TableCell>
-                      {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
+                      <button
+                        type="button"
+                        onClick={() => bukaPindahKelas(siswa)}
+                        className="cursor-pointer hover:text-primary hover:underline"
+                      >
+                        {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
+                      </button>
                     </TableCell>
 
                     <TableCell className="text-muted-foreground">
@@ -1492,7 +1593,16 @@ export default function PembayaranPage() {
                     })}
 
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => bukaEditStatus(siswa)}
+                        >
+                          <UserCog className="w-4 h-4 mr-2" />
+                          Edit Siswa
+                        </Button>
+
                         <Button
                           size="sm"
                           onClick={() => bukaModalBayar(siswa, "spp")}
@@ -1948,6 +2058,113 @@ export default function PembayaranPage() {
             <Button onClick={simpanEditNoHp} disabled={savingNoHp}>
               {savingNoHp && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {savingNoHp ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEditStatus} onOpenChange={setOpenEditStatus}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Siswa</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Siswa</Label>
+              <Input value={editStatusTarget?.nama_lengkap || ""} disabled />
+            </div>
+
+            <div>
+              <Label>Status</Label>
+              <Select value={editStatusValue} onValueChange={setEditStatusValue}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusSiswaOptions.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenEditStatus(false)}>
+              Batal
+            </Button>
+
+            <Button onClick={simpanEditStatus} disabled={savingStatus}>
+              {savingStatus && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {savingStatus ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openPindahKelas} onOpenChange={setOpenPindahKelas}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Pindah Kelas</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Siswa</Label>
+              <Input value={pindahKelasTarget?.nama_lengkap || ""} disabled />
+            </div>
+
+            <div>
+              <Label>Kelas Saat Ini</Label>
+              <Input
+                value={
+                  pindahKelasTarget
+                    ? `${getTingkatSiswa(pindahKelasTarget)} ${getNamaKelas(pindahKelasTarget)}`
+                    : ""
+                }
+                disabled
+              />
+            </div>
+
+            <div>
+              <Label>
+                Kelas Tujuan
+                {pindahKelasTarget
+                  ? ` (Tingkat ${getTingkatSiswa(pindahKelasTarget)})`
+                  : ""}
+              </Label>
+              <Select value={pindahKelasValue} onValueChange={setPindahKelasValue}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih kelas tujuan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {kelasUntukPindah.map((item) => (
+                    <SelectItem key={item.nama_kelas} value={item.nama_kelas}>
+                      {item.nama_kelas}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Hanya bisa pindah ke kelas lain di tingkat yang sama. Untuk
+                naik tingkat, gunakan fitur kenaikan kelas.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenPindahKelas(false)}>
+              Batal
+            </Button>
+
+            <Button onClick={simpanPindahKelas} disabled={savingPindahKelas}>
+              {savingPindahKelas && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              {savingPindahKelas ? "Menyimpan..." : "Simpan"}
             </Button>
           </DialogFooter>
         </DialogContent>
