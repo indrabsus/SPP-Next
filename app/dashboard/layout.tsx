@@ -8,6 +8,7 @@ import {
   FileText,
   KeyRound,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Menu,
   PanelLeftClose,
@@ -77,6 +78,12 @@ const allMenus = [
     title: "Setting",
     href: "/dashboard/setting-staf",
     icon: ShieldCheck,
+    adminOnly: true,
+  },
+  {
+    title: "Log Aktivitas",
+    href: "/dashboard/log-aktivitas",
+    icon: ListChecks,
     adminOnly: true,
   },
 
