@@ -177,9 +177,7 @@ const ITEMS_PER_PAGE = 50
 
 const statusSiswaOptions = [
   { value: "aktif", label: "Aktif" },
-  { value: "nonaktif", label: "Nonaktif" },
   { value: "keluar", label: "Keluar" },
-  { value: "ppdb", label: "PPDB" },
 ]
 
 // Kelas 12 cuma menagih SPP untuk 10 bulan pertama (Juli-April) - Mei & Juni
