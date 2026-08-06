@@ -436,6 +436,21 @@ const openModalBukti = (bukti: string | null | undefined) => {
       const params = new URLSearchParams()
       params.set("limit", "100000")
 
+      // Sama seperti getLogSpp(): admin bisa lihat semua tingkat (atau
+      // tingkat yang lagi difilter di layar), staf keuangan selalu
+      // dikunci ke tingkat yang jadi tanggung jawabnya - tanpa ini laporan
+      // cetak bisa bocor menampilkan tingkat lain di luar akses staf.
+      if (isAdminKeuangan(user)) {
+        if (tingkat !== "semua") {
+          params.set("tingkat", tingkat)
+        }
+      } else {
+        const tingkatStaf = allowedTingkat[0]
+        if (tingkatStaf) {
+          params.set("tingkat", tingkatStaf)
+        }
+      }
+
       const res = await apiFetch(`/spp/log?${params.toString()}`)
       const semuaRows: LogSpp[] = res?.data || []
 
