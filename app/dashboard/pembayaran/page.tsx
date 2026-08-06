@@ -10,6 +10,7 @@ import {
   Filter,
   History,
   Loader2,
+  Printer,
   ReceiptText,
   RotateCcw,
   Search,
@@ -325,7 +326,7 @@ export default function PembayaranPage() {
   const [loadingKelas, setLoadingKelas] = useState(false)
 
   const [sortKey, setSortKey] = useState<
-    "nama" | "kelas" | "tunggakan" | "ppdb" | ExtraTagihanKey
+    "nama" | "kelas" | "tunggakan" | "ppdb" | "total" | ExtraTagihanKey
   >("nama")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [page, setPage] = useState(1)
@@ -717,6 +718,20 @@ export default function PembayaranPage() {
     return 0
   }
 
+  const getTotalTunggakan = (siswa: Siswa) => {
+    let total = getTunggakanSpp(siswa)
+
+    if (showPpdb) total += getTunggakanPpdb(siswa)
+
+    extraTagihanOptions.forEach((item) => {
+      if (extraTagihan[item.key]) {
+        total += getNominalExtraTagihan(siswa, item.key)
+      }
+    })
+
+    return total
+  }
+
   const getStatusByBulan = (bulanValue: string) => {
     if (bulanValue === "16") return "du11"
     if (bulanValue === "17") return "du12"
@@ -739,7 +754,7 @@ export default function PembayaranPage() {
   }
 
   const handleSort = (
-    key: "nama" | "kelas" | "tunggakan" | "ppdb" | ExtraTagihanKey
+    key: "nama" | "kelas" | "tunggakan" | "ppdb" | "total" | ExtraTagihanKey
   ) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
@@ -758,6 +773,7 @@ export default function PembayaranPage() {
         if (sortKey === "kelas") return `${getTingkatSiswa(item)} ${getNamaKelas(item)}`
         if (sortKey === "tunggakan") return getTunggakanSpp(item)
         if (sortKey === "ppdb") return getTunggakanPpdb(item)
+        if (sortKey === "total") return getTotalTunggakan(item)
 
         return getNominalExtraTagihan(item, sortKey as ExtraTagihanKey)
       }
@@ -977,6 +993,28 @@ export default function PembayaranPage() {
 
   const jumlahKolomTambahan =
     Object.values(extraTagihan).filter(Boolean).length + (showPpdb ? 1 : 0)
+
+  const totalTunggakanKeseluruhan = useMemo(() => {
+    return sortedSiswa.reduce(
+      (total, siswa) => total + getTotalTunggakan(siswa),
+      0
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedSiswa, masterSpp, masterPpdb, bulanFilter, extraTagihan, showPpdb])
+
+  // Cetak PDF butuh kelas spesifik dipilih (bukan "Semua Kelas") supaya
+  // laporannya jelas untuk satu kelas - tingkat, tahun ajaran, dan bulan
+  // tagihan sudah selalu terisi (ada default-nya) begitu tabel tampil.
+  const bisaCetakPdf =
+    Boolean(tingkat) &&
+    Boolean(tahunAjaran) &&
+    namaKelasFilter !== "semua" &&
+    sortedSiswa.length > 0
+
+  const cetakPdf = () => {
+    if (!bisaCetakPdf) return
+    window.print()
+  }
 
   const toggleSelectSiswa = (id: string) => {
     setSelectedIds((prev) => {
@@ -1205,6 +1243,55 @@ export default function PembayaranPage() {
 
   return (
     <div className="space-y-6">
+      <style jsx global>{`
+        #print-area-pembayaran {
+          display: none;
+        }
+
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+
+          #print-area-pembayaran,
+          #print-area-pembayaran * {
+            visibility: visible;
+          }
+
+          #print-area-pembayaran {
+            display: block !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+            padding: 12px;
+            color: #000 !important;
+          }
+
+          /* Paksa teks hitam biar tetap kebaca walau lagi dark mode. */
+          #print-area-pembayaran * {
+            color: #000 !important;
+            background-color: transparent !important;
+          }
+
+          table {
+            font-size: 9px;
+          }
+
+          th,
+          td {
+            padding: 2px 4px !important;
+            line-height: 1.2 !important;
+          }
+
+          @page {
+            size: A4 landscape;
+            margin: 8mm;
+          }
+        }
+      `}</style>
+
       <div className="flex items-center gap-3">
         <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Wallet className="size-5" />
@@ -1380,6 +1467,21 @@ export default function PembayaranPage() {
 
             <Button
               size="sm"
+              variant="outline"
+              disabled={!bisaCetakPdf}
+              onClick={cetakPdf}
+              title={
+                namaKelasFilter === "semua"
+                  ? "Pilih kelas tertentu (bukan Semua Kelas) untuk mengaktifkan cetak PDF"
+                  : undefined
+              }
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Cetak PDF
+            </Button>
+
+            <Button
+              size="sm"
               disabled={selectedIds.size === 0}
               onClick={bukaKirimWa}
               className="bg-green-600 text-white hover:bg-green-700"
@@ -1461,6 +1563,16 @@ export default function PembayaranPage() {
                   )
                 })}
 
+                <TableHead>
+                  <button
+                    onClick={() => handleSort("total")}
+                    className="flex items-center gap-2"
+                  >
+                    Total Tunggakan
+                    <ArrowUpDown className="w-4 h-4" />
+                  </button>
+                </TableHead>
+
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -1469,7 +1581,7 @@ export default function PembayaranPage() {
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6 + jumlahKolomTambahan}
+                    colSpan={7 + jumlahKolomTambahan}
                     className="py-10"
                   >
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
@@ -1481,7 +1593,7 @@ export default function PembayaranPage() {
               ) : paginatedSiswa.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6 + jumlahKolomTambahan}
+                    colSpan={7 + jumlahKolomTambahan}
                     className="text-center py-10 text-muted-foreground"
                   >
                     Data siswa belum ada
@@ -1590,6 +1702,10 @@ export default function PembayaranPage() {
                       )
                     })}
 
+                    <TableCell className="font-bold text-red-600 dark:text-red-400">
+                      {formatRupiah(getTotalTunggakan(siswa))}
+                    </TableCell>
+
                     <TableCell className="text-right">
                       <div className="flex flex-wrap justify-end gap-2">
                         <Button
@@ -1655,6 +1771,74 @@ export default function PembayaranPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div id="print-area-pembayaran">
+        <div className="text-center leading-tight mb-2">
+          <h1 className="text-sm font-bold">DAFTAR TUNGGAKAN SISWA</h1>
+          <p className="text-[9px]">
+            Kelas: {tingkat} {namaKelasFilter !== "semua" ? namaKelasFilter : ""}{" "}
+            · Tahun Ajaran: {tahunAjaran || "-"} · Tunggakan SPP s.d. Bulan:{" "}
+            {getLabelBulan(Number(bulanFilter))} · Tanggal Cetak:{" "}
+            {new Date().toLocaleDateString("id-ID")}
+          </p>
+        </div>
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>No</TableHead>
+              <TableHead>Nama</TableHead>
+              <TableHead>Kelas</TableHead>
+              <TableHead>SPP / Bulan</TableHead>
+              <TableHead>Tunggakan SPP</TableHead>
+
+              {showPpdb && <TableHead>Tunggakan PPDB</TableHead>}
+
+              {extraTagihanOptions.map((item) => {
+                if (!extraTagihan[item.key]) return null
+                return <TableHead key={item.key}>{item.label}</TableHead>
+              })}
+
+              <TableHead>Total Tunggakan</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {sortedSiswa.map((siswa, index) => (
+              <TableRow key={siswa.id_siswa}>
+                <TableCell>{index + 1}</TableCell>
+                <TableCell>{siswa.nama_lengkap}</TableCell>
+                <TableCell>
+                  {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
+                </TableCell>
+                <TableCell>{formatRupiah(getNominalSpp(siswa))}</TableCell>
+                <TableCell>{formatRupiah(getTunggakanSpp(siswa))}</TableCell>
+
+                {showPpdb && (
+                  <TableCell>{formatRupiah(getTunggakanPpdb(siswa))}</TableCell>
+                )}
+
+                {extraTagihanOptions.map((item) => {
+                  if (!extraTagihan[item.key]) return null
+                  return (
+                    <TableCell key={item.key}>
+                      {formatRupiah(getNominalExtraTagihan(siswa, item.key))}
+                    </TableCell>
+                  )
+                })}
+
+                <TableCell className="font-bold">
+                  {formatRupiah(getTotalTunggakan(siswa))}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        <div className="mt-2 text-right text-sm font-bold">
+          Total Tunggakan: {formatRupiah(totalTunggakanKeseluruhan)}
+        </div>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
