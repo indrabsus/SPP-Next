@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import {
   ArrowUpDown,
   Camera,
@@ -1249,20 +1250,17 @@ export default function PembayaranPage() {
         }
 
         @media print {
-          body * {
-            visibility: hidden;
-          }
-
-          #print-area-pembayaran,
-          #print-area-pembayaran * {
-            visibility: visible;
+          /* #print-area-pembayaran di-portal langsung jadi anak
+             document.body. Semua anak body LAINNYA di-display:none (bukan
+             visibility:hidden) supaya benar-benar hilang dari layout - kalau
+             cuma disembunyikan lewat visibility, tinggi kosongnya tetap
+             dihitung dan bikin browser nambah halaman kosong. */
+          body > *:not(#print-area-pembayaran) {
+            display: none !important;
           }
 
           #print-area-pembayaran {
             display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
             width: 100%;
             background: white !important;
             padding: 12px;
@@ -1772,73 +1770,90 @@ export default function PembayaranPage() {
         </CardContent>
       </Card>
 
-      <div id="print-area-pembayaran">
-        <div className="text-center leading-tight mb-2">
-          <h1 className="text-sm font-bold">DAFTAR TUNGGAKAN SISWA</h1>
-          <p className="text-[9px]">
-            Kelas: {tingkat} {namaKelasFilter !== "semua" ? namaKelasFilter : ""}{" "}
-            · Tahun Ajaran: {tahunAjaran || "-"} · Tunggakan SPP s.d. Bulan:{" "}
-            {getLabelBulan(Number(bulanFilter))} · Tanggal Cetak:{" "}
-            {new Date().toLocaleDateString("id-ID")}
-          </p>
-        </div>
+      {/* Diportal langsung ke document.body supaya jadi anak body yang
+          sejajar dengan seluruh chrome dashboard (sidebar/header), sehingga
+          aturan CSS "body > *:not(#print-area-pembayaran) { display: none }"
+          di atas benar-benar bisa menyembunyikan semuanya selain area ini
+          saat dicetak - kalau cuma nested biasa, aturan itu malah
+          menyembunyikan area ini juga karena bukan direct child dari body. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div id="print-area-pembayaran">
+            <div className="text-center leading-tight mb-2">
+              <h1 className="text-sm font-bold">DAFTAR TUNGGAKAN SISWA</h1>
+              <p className="text-[9px]">
+                Kelas: {tingkat}{" "}
+                {namaKelasFilter !== "semua" ? namaKelasFilter : ""} · Tahun
+                Ajaran: {tahunAjaran || "-"} · Tunggakan SPP s.d. Bulan:{" "}
+                {getLabelBulan(Number(bulanFilter))} · Tanggal Cetak:{" "}
+                {new Date().toLocaleDateString("id-ID")}
+              </p>
+            </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>No</TableHead>
-              <TableHead>Nama</TableHead>
-              <TableHead>Kelas</TableHead>
-              <TableHead>SPP / Bulan</TableHead>
-              <TableHead>Tunggakan SPP</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>No</TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>Kelas</TableHead>
+                  <TableHead>SPP / Bulan</TableHead>
+                  <TableHead>Tunggakan SPP</TableHead>
 
-              {showPpdb && <TableHead>Tunggakan PPDB</TableHead>}
+                  {showPpdb && <TableHead>Tunggakan PPDB</TableHead>}
 
-              {extraTagihanOptions.map((item) => {
-                if (!extraTagihan[item.key]) return null
-                return <TableHead key={item.key}>{item.label}</TableHead>
-              })}
+                  {extraTagihanOptions.map((item) => {
+                    if (!extraTagihan[item.key]) return null
+                    return <TableHead key={item.key}>{item.label}</TableHead>
+                  })}
 
-              <TableHead>Total Tunggakan</TableHead>
-            </TableRow>
-          </TableHeader>
+                  <TableHead>Total Tunggakan</TableHead>
+                </TableRow>
+              </TableHeader>
 
-          <TableBody>
-            {sortedSiswa.map((siswa, index) => (
-              <TableRow key={siswa.id_siswa}>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell>{siswa.nama_lengkap}</TableCell>
-                <TableCell>
-                  {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
-                </TableCell>
-                <TableCell>{formatRupiah(getNominalSpp(siswa))}</TableCell>
-                <TableCell>{formatRupiah(getTunggakanSpp(siswa))}</TableCell>
-
-                {showPpdb && (
-                  <TableCell>{formatRupiah(getTunggakanPpdb(siswa))}</TableCell>
-                )}
-
-                {extraTagihanOptions.map((item) => {
-                  if (!extraTagihan[item.key]) return null
-                  return (
-                    <TableCell key={item.key}>
-                      {formatRupiah(getNominalExtraTagihan(siswa, item.key))}
+              <TableBody>
+                {sortedSiswa.map((siswa, index) => (
+                  <TableRow key={siswa.id_siswa}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{siswa.nama_lengkap}</TableCell>
+                    <TableCell>
+                      {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
                     </TableCell>
-                  )
-                })}
+                    <TableCell>{formatRupiah(getNominalSpp(siswa))}</TableCell>
+                    <TableCell>
+                      {formatRupiah(getTunggakanSpp(siswa))}
+                    </TableCell>
 
-                <TableCell className="font-bold">
-                  {formatRupiah(getTotalTunggakan(siswa))}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                    {showPpdb && (
+                      <TableCell>
+                        {formatRupiah(getTunggakanPpdb(siswa))}
+                      </TableCell>
+                    )}
 
-        <div className="mt-2 text-right text-sm font-bold">
-          Total Tunggakan: {formatRupiah(totalTunggakanKeseluruhan)}
-        </div>
-      </div>
+                    {extraTagihanOptions.map((item) => {
+                      if (!extraTagihan[item.key]) return null
+                      return (
+                        <TableCell key={item.key}>
+                          {formatRupiah(
+                            getNominalExtraTagihan(siswa, item.key)
+                          )}
+                        </TableCell>
+                      )
+                    })}
+
+                    <TableCell className="font-bold">
+                      {formatRupiah(getTotalTunggakan(siswa))}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            <div className="mt-2 text-right text-sm font-bold">
+              Total Tunggakan: {formatRupiah(totalTunggakanKeseluruhan)}
+            </div>
+          </div>,
+          document.body
+        )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
