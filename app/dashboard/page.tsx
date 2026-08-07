@@ -28,7 +28,7 @@ import {
   YAxis,
 } from "recharts"
 
-import { apiFetch } from "@/lib/api"
+import { apiFetch, waFetch } from "@/lib/api"
 import {
   getAllowedTingkat,
   getUser,
@@ -77,18 +77,14 @@ type Siswa = {
   tahun: number
 }
 
+// Bentuk respons /wa/chats dari wabot-claude: daftar pesan MASUK terakhir
+// (bukan daftar thread percakapan seperti whatsapp-web.js dulu) - tidak ada
+// nama kontak, status grup, jumlah belum dibaca, atau siapa pengirim
+// terakhir, jadi kartu di bawah cuma menampilkan nomor + pesan + waktu.
 type WaChat = {
-  id: string
-  name: string
-  isGroup: boolean
-  unreadCount: number
-  timestamp: number
-  lastMessage: {
-    body: string
-    fromMe: boolean
-    timestamp: number
-    hasMedia: boolean
-  } | null
+  nomor: string
+  pesan: string
+  waktu: string
 }
 
 const bulanLabel: Record<number, string> = {
@@ -147,10 +143,10 @@ const isUangMasuk = (item: LogSpp) => {
   return item.bayar === "csh" || item.bayar === "trf"
 }
 
-const formatWaktuChat = (timestamp: number) => {
-  if (!timestamp) return "-"
+const formatWaktuChat = (waktu: string) => {
+  if (!waktu) return "-"
 
-  const date = new Date(timestamp * 1000)
+  const date = new Date(waktu)
   const now = new Date()
 
   if (formatDateOnly(date) === formatDateOnly(now)) {
@@ -220,7 +216,7 @@ export default function DashboardPage() {
     if (!user) return
 
     try {
-      const res = await apiFetch("/wa/chats")
+      const res = await waFetch("/wa/chats")
       setWaChats(res.data || [])
       setWaChatsError(null)
     } catch (error: any) {
@@ -238,8 +234,20 @@ export default function DashboardPage() {
   }, [user])
 
   const waChatsTerakhir = useMemo(() => {
-    return [...waChats]
-      .sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0))
+    // /wa/chats dari wabot-claude itu log pesan masuk mentah (bisa banyak
+    // pesan dari nomor yang sama) - supaya kartu "Percakapan Terakhir"
+    // menunjukkan satu baris per kontak (bukan per pesan), simpan cuma
+    // pesan TERBARU dari tiap nomor.
+    const terbaruPerNomor = new Map<string, WaChat>()
+
+    ;[...waChats]
+      .sort((a, b) => new Date(a.waktu).getTime() - new Date(b.waktu).getTime())
+      .forEach((chat) => {
+        if (chat.nomor) terbaruPerNomor.set(chat.nomor, chat)
+      })
+
+    return Array.from(terbaruPerNomor.values())
+      .sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime())
       .slice(0, 8)
   }, [waChats])
 
@@ -712,19 +720,14 @@ export default function DashboardPage() {
                   </p>
                 ) : (
                   <div className="space-y-2.5">
-                    {waChatsTerakhir.map((chat) => {
-                      const inisial = (chat.name || "?").charAt(0).toUpperCase()
-                      const preview = chat.lastMessage
-                        ? `${chat.lastMessage.fromMe ? "Anda: " : ""}${
-                            chat.lastMessage.hasMedia && !chat.lastMessage.body
-                              ? "[Media]"
-                              : chat.lastMessage.body || "-"
-                          }`
-                        : "Belum ada pesan"
+                    {waChatsTerakhir.map((chat, index) => {
+                      const inisial = chat.nomor
+                        ? chat.nomor.slice(-2)
+                        : "?"
 
                       return (
                         <div
-                          key={chat.id}
+                          key={`${chat.nomor}-${chat.waktu}-${index}`}
                           className="dashboard-soft-card flex items-center justify-between gap-3 rounded-xl p-3"
                         >
                           <div className="flex min-w-0 items-center gap-3">
@@ -733,24 +736,17 @@ export default function DashboardPage() {
                             </div>
                             <div className="min-w-0">
                               <p className="truncate font-medium">
-                                {chat.name}
+                                {chat.nomor || "-"}
                               </p>
                               <p className="truncate text-xs text-muted-foreground">
-                                {preview}
+                                {chat.pesan || "-"}
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex shrink-0 flex-col items-end gap-1">
-                            <p className="text-xs text-muted-foreground">
-                              {formatWaktuChat(chat.timestamp)}
-                            </p>
-                            {chat.unreadCount > 0 && (
-                              <Badge className="h-5 px-1.5">
-                                {chat.unreadCount}
-                              </Badge>
-                            )}
-                          </div>
+                          <p className="shrink-0 text-xs text-muted-foreground">
+                            {formatWaktuChat(chat.waktu)}
+                          </p>
                         </div>
                       )
                     })}

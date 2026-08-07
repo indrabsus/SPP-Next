@@ -1,5 +1,11 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 
+// Bot WA sekarang dihosting terpisah (project wabot-claude), bukan lagi
+// bagian dari backend sakuci-express - endpoint /wa/status, /wa/chats,
+// /wa/kirim dipanggil ke sini, dengan kontrak response yang sama persis
+// (lihat README wabot-claude) supaya tidak perlu ubah cara pemanggilannya.
+const WA_API_URL = process.env.NEXT_PUBLIC_WA_API_URL
+
 // Pesan yang dikembalikan backend (middleware auth) saat token tidak ada /
 // tidak valid / kedaluwarsa. Kalau ini muncul padahal kita memang sedang
 // mengirim token, berarti sesi login sudah tidak berlaku lagi.
@@ -16,9 +22,14 @@ function paksaLogout() {
   }
 }
 
-export async function apiFetch(path: string, options: RequestInit = {}) {
-  if (!API_URL) {
-    throw new Error("NEXT_PUBLIC_API_URL belum diset di .env.local")
+async function fetchDariBase(
+  baseUrl: string | undefined,
+  envName: string,
+  path: string,
+  options: RequestInit
+) {
+  if (!baseUrl) {
+    throw new Error(`${envName} belum diset di .env.local`)
   }
 
   const token =
@@ -33,7 +44,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     ...(options.headers || {}),
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers,
   })
@@ -63,4 +74,12 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   }
 
   return data
+}
+
+export async function apiFetch(path: string, options: RequestInit = {}) {
+  return fetchDariBase(API_URL, "NEXT_PUBLIC_API_URL", path, options)
+}
+
+export async function waFetch(path: string, options: RequestInit = {}) {
+  return fetchDariBase(WA_API_URL, "NEXT_PUBLIC_WA_API_URL", path, options)
 }

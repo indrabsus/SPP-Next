@@ -25,7 +25,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 
-import { apiFetch } from "@/lib/api"
+import { apiFetch, waFetch } from "@/lib/api"
 import {
   getAllowedTingkat,
   getUser,
@@ -1087,7 +1087,7 @@ export default function PembayaranPage() {
       }
 
       try {
-        await apiFetch("/wa/kirim", {
+        await waFetch("/wa/kirim", {
           method: "POST",
           body: JSON.stringify({ nomor, pesan: pesanWa }),
         })

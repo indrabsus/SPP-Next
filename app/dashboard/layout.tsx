@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react"
 
-import { apiFetch } from "@/lib/api"
+import { apiFetch, waFetch } from "@/lib/api"
 import {
   getAllowedTingkat,
   getUser,
@@ -131,7 +131,7 @@ export default function DashboardLayout({
     if (!user) return
 
     const cekStatusWa = () => {
-      apiFetch("/wa/status")
+      waFetch("/wa/status")
         .then((res) => setWaOnline(res.data?.status === "ready"))
         .catch(() => setWaOnline(false))
     }
