@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
+  AlertTriangle,
   BarChart3,
   Clock,
   CreditCard,
   FileText,
   GraduationCap,
   Loader2,
-  MessageCircle,
   PieChart as PieChartIcon,
   RefreshCcw,
   ShieldCheck,
@@ -28,7 +28,7 @@ import {
   YAxis,
 } from "recharts"
 
-import { apiFetch, waFetch } from "@/lib/api"
+import { apiFetch } from "@/lib/api"
 import {
   getAllowedTingkat,
   getUser,
@@ -71,20 +71,54 @@ type LogSpp = {
   }
 }
 
+type LogSppSiswa = {
+  nominal: number
+  bulan: number
+  kelas: number
+  status: string
+}
+
 type Siswa = {
   id_siswa: string
   nama_lengkap: string
   tahun: number
+  kelas_terkini?: {
+    tingkat?: number | string
+    nama_kelas?: string
+  } | null
+  log_spp?: LogSppSiswa[]
 }
 
-// Bentuk respons /wa/chats dari wabot-claude: daftar pesan MASUK terakhir
-// (bukan daftar thread percakapan seperti whatsapp-web.js dulu) - tidak ada
-// nama kontak, status grup, jumlah belum dibaca, atau siapa pengirim
-// terakhir, jadi kartu di bawah cuma menampilkan nomor + pesan + waktu.
-type WaChat = {
-  nomor: string
-  pesan: string
-  waktu: string
+type MasterSpp = {
+  tahun: number
+  spp10: number
+  spp11: number
+  spp12: number
+}
+
+// Kelas 12 cuma menagih SPP untuk 10 bulan pertama (Juli-April) - sama
+// seperti perhitungan di halaman Pembayaran/Laporan.
+const JUMLAH_BULAN_SPP_KELAS_12 = 10
+
+const getBulanSekarangSpp = () => {
+  const bulan = new Date().getMonth() + 1
+
+  const mapping: Record<number, number> = {
+    7: 1,
+    8: 2,
+    9: 3,
+    10: 4,
+    11: 5,
+    12: 6,
+    1: 7,
+    2: 8,
+    3: 9,
+    4: 10,
+    5: 11,
+    6: 12,
+  }
+
+  return mapping[bulan] || 1
 }
 
 const bulanLabel: Record<number, string> = {
@@ -143,31 +177,14 @@ const isUangMasuk = (item: LogSpp) => {
   return item.bayar === "csh" || item.bayar === "trf"
 }
 
-const formatWaktuChat = (waktu: string) => {
-  if (!waktu) return "-"
-
-  const date = new Date(waktu)
-  const now = new Date()
-
-  if (formatDateOnly(date) === formatDateOnly(now)) {
-    return date.toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
-  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" })
-}
-
 export default function DashboardPage() {
   const router = useRouter()
 
   const [user, setUser] = useState<UserLogin | null>(null)
   const [logs, setLogs] = useState<LogSpp[]>([])
   const [siswa, setSiswa] = useState<Siswa[]>([])
+  const [masterSpp, setMasterSpp] = useState<Record<number, MasterSpp>>({})
   const [loading, setLoading] = useState(true)
-  const [waChats, setWaChats] = useState<WaChat[]>([])
-  const [waChatsError, setWaChatsError] = useState<string | null>(null)
 
   useEffect(() => {
     const currentUser = getUser()
@@ -181,6 +198,17 @@ export default function DashboardPage() {
   }, [router])
 
   const allowedTingkat = user ? getAllowedTingkat(user) : []
+
+  const getMasterSpp = async (tahun: number) => {
+    if (!tahun || masterSpp[tahun]) return
+
+    try {
+      const res = await apiFetch(`/spp/master/${tahun}`)
+      setMasterSpp((prev) => ({ ...prev, [tahun]: res.data }))
+    } catch (error) {
+      console.error("Gagal mengambil master SPP:", error)
+    }
+  }
 
   const getDashboardData = async () => {
     if (!user) return
@@ -205,6 +233,12 @@ export default function DashboardPage() {
       }
 
       setSiswa(siswaResult)
+
+      const tahunUnik = [
+        ...new Set(siswaResult.map((item) => item.tahun).filter(Boolean)),
+      ]
+
+      await Promise.all(tahunUnik.map((tahun) => getMasterSpp(Number(tahun))))
     } catch (error) {
       console.error("Gagal mengambil dashboard:", error)
     } finally {
@@ -212,44 +246,12 @@ export default function DashboardPage() {
     }
   }
 
-  const getWaChats = async () => {
-    if (!user) return
-
-    try {
-      const res = await waFetch("/wa/chats")
-      setWaChats(res.data || [])
-      setWaChatsError(null)
-    } catch (error: any) {
-      setWaChats([])
-      setWaChatsError(error.message || "WhatsApp belum terhubung.")
-    }
-  }
-
   useEffect(() => {
     if (user) {
       getDashboardData()
-      getWaChats()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
-
-  const waChatsTerakhir = useMemo(() => {
-    // /wa/chats dari wabot-claude itu log pesan masuk mentah (bisa banyak
-    // pesan dari nomor yang sama) - supaya kartu "Percakapan Terakhir"
-    // menunjukkan satu baris per kontak (bukan per pesan), simpan cuma
-    // pesan TERBARU dari tiap nomor.
-    const terbaruPerNomor = new Map<string, WaChat>()
-
-    ;[...waChats]
-      .sort((a, b) => new Date(a.waktu).getTime() - new Date(b.waktu).getTime())
-      .forEach((chat) => {
-        if (chat.nomor) terbaruPerNomor.set(chat.nomor, chat)
-      })
-
-    return Array.from(terbaruPerNomor.values())
-      .sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime())
-      .slice(0, 8)
-  }, [waChats])
 
   const stats = useMemo(() => {
     const today = new Date()
@@ -354,6 +356,69 @@ export default function DashboardPage() {
       .slice(0, 8)
   }, [logs])
 
+  const getNominalSpp = (item: Siswa) => {
+    const master = masterSpp[item.tahun]
+    const tingkat = String(item.kelas_terkini?.tingkat || "")
+
+    if (!master) return 0
+
+    if (tingkat === "10") return Number(master.spp10 || 0)
+    if (tingkat === "11") return Number(master.spp11 || 0)
+
+    if (tingkat === "12") {
+      return Math.round((Number(master.spp12 || 0) * 12) / JUMLAH_BULAN_SPP_KELAS_12)
+    }
+
+    return 0
+  }
+
+  const getTunggakanSpp = (item: Siswa) => {
+    const tingkat = String(item.kelas_terkini?.tingkat || "")
+    let bulanSekarang = getBulanSekarangSpp()
+
+    // Kelas 12 cuma ditagih sampai bulan ke-10 (April) - jangan hitung
+    // tunggakan lewat dari itu.
+    if (tingkat === "12" && bulanSekarang > JUMLAH_BULAN_SPP_KELAS_12) {
+      bulanSekarang = JUMLAH_BULAN_SPP_KELAS_12
+    }
+
+    const totalTagihan = getNominalSpp(item) * bulanSekarang
+
+    const totalBayar = (item.log_spp || [])
+      .filter(
+        (log) => log.status === "spp" && String(log.kelas) === tingkat
+      )
+      .reduce((total, log) => total + Number(log.nominal || 0), 0)
+
+    return Math.max(totalTagihan - totalBayar, 0)
+  }
+
+  const topTunggakanKelas = useMemo(() => {
+    const map = new Map<string, { total: number; jumlahSiswa: number }>()
+
+    siswa.forEach((item) => {
+      const tunggakan = getTunggakanSpp(item)
+      if (tunggakan <= 0) return
+
+      const tingkat = item.kelas_terkini?.tingkat || "-"
+      const namaKelas = item.kelas_terkini?.nama_kelas || "-"
+      const kelas = `${tingkat} ${namaKelas}`
+
+      const current = map.get(kelas) || { total: 0, jumlahSiswa: 0 }
+
+      map.set(kelas, {
+        total: current.total + tunggakan,
+        jumlahSiswa: current.jumlahSiswa + 1,
+      })
+    })
+
+    return Array.from(map.entries())
+      .map(([kelas, value]) => ({ kelas, ...value }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siswa, masterSpp])
+
   const transaksiTerakhir = useMemo(() => {
     return [...logs]
       .sort(
@@ -389,13 +454,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              getDashboardData()
-              getWaChats()
-            }}
-          >
+          <Button variant="outline" onClick={getDashboardData}>
             <RefreshCcw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -704,52 +763,42 @@ export default function DashboardPage() {
             <Card className="dashboard-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5" />
-                  Percakapan WA Terakhir
+                  <AlertTriangle className="w-5 h-5" />
+                  Top Kelas Berdasarkan Tunggakan
                 </CardTitle>
               </CardHeader>
 
               <CardContent>
-                {waChatsError ? (
+                {topTunggakanKelas.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    {waChatsError}
-                  </p>
-                ) : waChatsTerakhir.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Belum ada percakapan.
+                    Tidak ada tunggakan SPP bulan berjalan.
                   </p>
                 ) : (
                   <div className="space-y-2.5">
-                    {waChatsTerakhir.map((chat, index) => {
-                      const inisial = chat.nomor
-                        ? chat.nomor.slice(-2)
-                        : "?"
-
-                      return (
-                        <div
-                          key={`${chat.nomor}-${chat.waktu}-${index}`}
-                          className="dashboard-soft-card flex items-center justify-between gap-3 rounded-xl p-3"
-                        >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                              {inisial}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">
-                                {chat.nomor || "-"}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {chat.pesan || "-"}
-                              </p>
-                            </div>
+                    {topTunggakanKelas.map((item, index) => (
+                      <div
+                        key={item.kelas}
+                        className="dashboard-soft-card flex items-center justify-between gap-3 rounded-xl p-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-sm font-semibold text-red-600 dark:text-red-400">
+                            {index + 1}
                           </div>
-
-                          <p className="shrink-0 text-xs text-muted-foreground">
-                            {formatWaktuChat(chat.waktu)}
-                          </p>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {item.kelas}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {item.jumlahSiswa} siswa menunggak
+                            </p>
+                          </div>
                         </div>
-                      )
-                    })}
+
+                        <p className="shrink-0 font-semibold text-red-600 dark:text-red-400">
+                          {formatRupiah(item.total)}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
