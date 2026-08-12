@@ -19,6 +19,7 @@ import {
   Trash2,
   Upload,
   UserCog,
+  UserPlus,
   Users,
   Wallet,
   X,
@@ -112,6 +113,15 @@ type Siswa = {
 type Kelas = {
   tingkat: number | string
   nama_kelas: string
+}
+
+type KelasPpdb = {
+  id_kelas: string
+  tingkat: number | string
+  nama_kelas: string
+  jurusan_ppdb?: {
+    nama_jurusan?: string
+  }
 }
 
 type MasterSpp = {
@@ -385,6 +395,15 @@ export default function PembayaranPage() {
   const [pindahKelasTarget, setPindahKelasTarget] = useState<Siswa | null>(null)
   const [pindahKelasValue, setPindahKelasValue] = useState("")
   const [savingPindahKelas, setSavingPindahKelas] = useState(false)
+
+  const [openTambahMurid, setOpenTambahMurid] = useState(false)
+  const [namaMuridBaru, setNamaMuridBaru] = useState("")
+  const [kelasPpdbList, setKelasPpdbList] = useState<KelasPpdb[]>([])
+  const [loadingKelasPpdb, setLoadingKelasPpdb] = useState(false)
+  const [kelasPpdbTerpilih, setKelasPpdbTerpilih] = useState("")
+  const [tambahMuridNamaKelas, setTambahMuridNamaKelas] = useState("")
+  const [tambahMuridTahunAjaran, setTambahMuridTahunAjaran] = useState("")
+  const [savingTambahMurid, setSavingTambahMurid] = useState(false)
 
   useEffect(() => {
     const currentUser = getUser()
@@ -1240,6 +1259,87 @@ export default function PembayaranPage() {
     }
   }
 
+  const kelasPpdbUntukTingkat = useMemo(
+    () =>
+      kelasPpdbList.filter((item) => String(item.tingkat) === tingkat),
+    [kelasPpdbList, tingkat]
+  )
+
+  const bukaTambahMurid = async () => {
+    setNamaMuridBaru("")
+    setKelasPpdbTerpilih("")
+    setTambahMuridNamaKelas(
+      namaKelasFilter !== "semua" ? namaKelasFilter : ""
+    )
+    setTambahMuridTahunAjaran(tahunAjaran)
+    setOpenTambahMurid(true)
+
+    setLoadingKelasPpdb(true)
+
+    try {
+      const res = await apiFetch("/ppdb/kelas")
+      setKelasPpdbList(res.data || [])
+    } catch (error: any) {
+      alert(error.message || "Gagal mengambil daftar kelas PPDB")
+    } finally {
+      setLoadingKelasPpdb(false)
+    }
+  }
+
+  const simpanTambahMurid = async () => {
+    if (!namaMuridBaru.trim()) {
+      alert("Nama lengkap wajib diisi")
+      return
+    }
+
+    if (!kelasPpdbTerpilih) {
+      alert("Pilih kelas PPDB")
+      return
+    }
+
+    if (!tambahMuridNamaKelas || !tambahMuridTahunAjaran) {
+      alert("Pilih kelas dan tahun ajaran")
+      return
+    }
+
+    setSavingTambahMurid(true)
+
+    try {
+      const res = await apiFetch("/ppdb/tambah-cepat", {
+        method: "POST",
+        body: JSON.stringify({ nama_lengkap: namaMuridBaru.trim() }),
+      })
+
+      const idSiswaBaru = res.data.id_siswa
+
+      await apiFetch("/ppdb/postkelas", {
+        method: "POST",
+        body: JSON.stringify({
+          id_siswa: idSiswaBaru,
+          id_kelas: kelasPpdbTerpilih,
+        }),
+      })
+
+      await apiFetch("/riwayat-kelas/pindah", {
+        method: "POST",
+        body: JSON.stringify({
+          id_siswa: idSiswaBaru,
+          tahun_ajaran: tambahMuridTahunAjaran,
+          tingkat,
+          nama_kelas: tambahMuridNamaKelas,
+        }),
+      })
+
+      alert("Murid baru berhasil ditambahkan")
+      setOpenTambahMurid(false)
+      getSiswa()
+    } catch (error: any) {
+      alert(error.message || "Gagal menambahkan murid baru")
+    } finally {
+      setSavingTambahMurid(false)
+    }
+  }
+
   if (!user) return null
 
   return (
@@ -1462,6 +1562,16 @@ export default function PembayaranPage() {
             <Badge variant="secondary" className="font-semibold">
               {sortedSiswa.length} siswa
             </Badge>
+
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!tingkat || !tahunAjaran}
+              onClick={bukaTambahMurid}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Tambah Murid Baru
+            </Button>
 
             <Button
               size="sm"
@@ -2362,6 +2472,115 @@ export default function PembayaranPage() {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}
               {savingPindahKelas ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openTambahMurid} onOpenChange={setOpenTambahMurid}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Tambah Murid Baru</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Nama Lengkap</Label>
+              <Input
+                value={namaMuridBaru}
+                onChange={(e) => setNamaMuridBaru(e.target.value)}
+                placeholder="Nama lengkap siswa"
+              />
+            </div>
+
+            <div>
+              <Label>Kelas PPDB (Tingkat {tingkat})</Label>
+              <Select
+                value={kelasPpdbTerpilih}
+                onValueChange={setKelasPpdbTerpilih}
+                disabled={loadingKelasPpdb}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={
+                      loadingKelasPpdb ? "Memuat..." : "Pilih kelas PPDB"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {kelasPpdbUntukTingkat.map((item) => (
+                    <SelectItem key={item.id_kelas} value={item.id_kelas}>
+                      {item.nama_kelas}
+                      {item.jurusan_ppdb?.nama_jurusan
+                        ? ` - ${item.jurusan_ppdb.nama_jurusan}`
+                        : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Tahun Ajaran</Label>
+                <Select
+                  value={tambahMuridTahunAjaran}
+                  onValueChange={setTambahMuridTahunAjaran}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih tahun ajaran" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {daftarTahunAjaran.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Kelas (Tingkat {tingkat})</Label>
+                <Select
+                  value={tambahMuridNamaKelas}
+                  onValueChange={setTambahMuridNamaKelas}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih kelas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {kelas.map((item) => (
+                      <SelectItem key={item.nama_kelas} value={item.nama_kelas}>
+                        {item.nama_kelas}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Cuma nama, kelas PPDB, dan kelas/tahun ajaran yang diisi -
+              data lain (NISN, NIK, no HP, alamat, dst) diisi placeholder dan
+              status langsung Aktif. Lengkapi datanya nanti lewat menu PPDB
+              kalau perlu.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpenTambahMurid(false)}
+            >
+              Batal
+            </Button>
+
+            <Button onClick={simpanTambahMurid} disabled={savingTambahMurid}>
+              {savingTambahMurid && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              {savingTambahMurid ? "Menyimpan..." : "Simpan"}
             </Button>
           </DialogFooter>
         </DialogContent>
