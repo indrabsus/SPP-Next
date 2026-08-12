@@ -1265,6 +1265,17 @@ export default function PembayaranPage() {
     [kelasPpdbList, tingkat]
   )
 
+  // Siswa yang ditambahkan ke tingkat 11/12 (bukan cuma 10) itu masuknya
+  // bukan tahun sekarang - misalnya sekarang PPDB2026 itu angkatan kelas 10,
+  // maka siswa yang ditambahkan ke kelas 11 angkatannya PPDB2025, dan ke
+  // kelas 12 angkatannya PPDB2024. Dipakai buat filter daftar Kelas PPDB
+  // (supaya kelasnya sesuai angkatan) dan buat field `tahun` di siswa_ppdb
+  // (dipakai untuk mencocokkan master SPP/PPDB per angkatan).
+  const getTahunMasukUntukTingkat = (tingkatValue: string) => {
+    const offset = Number(tingkatValue || "10") - 10
+    return new Date().getFullYear() - offset
+  }
+
   const bukaTambahMurid = async () => {
     setNamaMuridBaru("")
     setKelasPpdbTerpilih("")
@@ -1277,7 +1288,8 @@ export default function PembayaranPage() {
     setLoadingKelasPpdb(true)
 
     try {
-      const res = await apiFetch("/ppdb/kelas")
+      const tahunMasuk = getTahunMasukUntukTingkat(tingkat)
+      const res = await apiFetch(`/ppdb/kelas?tahun=${tahunMasuk}`)
       setKelasPpdbList(res.data || [])
     } catch (error: any) {
       alert(error.message || "Gagal mengambil daftar kelas PPDB")
@@ -1307,7 +1319,10 @@ export default function PembayaranPage() {
     try {
       const res = await apiFetch("/ppdb/tambah-cepat", {
         method: "POST",
-        body: JSON.stringify({ nama_lengkap: namaMuridBaru.trim() }),
+        body: JSON.stringify({
+          nama_lengkap: namaMuridBaru.trim(),
+          tahun: getTahunMasukUntukTingkat(tingkat),
+        }),
       })
 
       const idSiswaBaru = res.data.id_siswa
@@ -2494,7 +2509,10 @@ export default function PembayaranPage() {
             </div>
 
             <div>
-              <Label>Kelas PPDB (Tingkat {tingkat})</Label>
+              <Label>
+                Kelas PPDB (Tingkat {tingkat} - Angkatan PPDB{" "}
+                {getTahunMasukUntukTingkat(tingkat)})
+              </Label>
               <Select
                 value={kelasPpdbTerpilih}
                 onValueChange={setKelasPpdbTerpilih}
@@ -2563,8 +2581,10 @@ export default function PembayaranPage() {
             <p className="text-xs text-muted-foreground">
               Cuma nama, kelas PPDB, dan kelas/tahun ajaran yang diisi -
               data lain (NISN, NIK, no HP, alamat, dst) diisi placeholder dan
-              status langsung Aktif. Lengkapi datanya nanti lewat menu PPDB
-              kalau perlu.
+              status langsung Aktif. Angkatan PPDB otomatis disesuaikan ke
+              tingkat yang dipilih (tingkat 11 = angkatan setahun sebelum
+              tingkat 10, tingkat 12 = dua tahun sebelumnya). Lengkapi
+              datanya nanti lewat menu PPDB kalau perlu.
             </p>
           </div>
 
