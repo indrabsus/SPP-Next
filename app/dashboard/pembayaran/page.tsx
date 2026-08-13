@@ -1905,13 +1905,20 @@ export default function PembayaranPage() {
         createPortal(
           <div id="print-area-pembayaran">
             <div className="text-center leading-tight mb-2">
-              <h1 className="text-sm font-bold">DAFTAR TUNGGAKAN SISWA</h1>
+              <h1 className="text-sm font-bold">
+                DAFTAR TUNGGAKAN KELAS {tingkat}{" "}
+                {namaKelasFilter !== "semua" ? namaKelasFilter : ""}
+              </h1>
               <p className="text-[9px]">
-                Kelas: {tingkat}{" "}
-                {namaKelasFilter !== "semua" ? namaKelasFilter : ""} · Tahun
-                Ajaran: {tahunAjaran || "-"} · Tunggakan SPP s.d. Bulan:{" "}
+                Tahun Ajaran: {tahunAjaran || "-"} · Tunggakan SPP s.d. Bulan:{" "}
                 {getLabelBulan(Number(bulanFilter))} · Tanggal Cetak:{" "}
                 {new Date().toLocaleDateString("id-ID")}
+              </p>
+              <p className="text-[9px]">
+                SPP / Bulan:{" "}
+                {formatRupiah(
+                  sortedSiswa[0] ? getNominalSpp(sortedSiswa[0]) : 0
+                )}
               </p>
             </div>
 
@@ -1920,8 +1927,6 @@ export default function PembayaranPage() {
                 <TableRow>
                   <TableHead>No</TableHead>
                   <TableHead>Nama</TableHead>
-                  <TableHead>Kelas</TableHead>
-                  <TableHead>SPP / Bulan</TableHead>
                   <TableHead>Tunggakan SPP</TableHead>
 
                   {showPpdb && <TableHead>Tunggakan PPDB</TableHead>}
@@ -1940,10 +1945,6 @@ export default function PembayaranPage() {
                   <TableRow key={siswa.id_siswa}>
                     <TableCell>{index + 1}</TableCell>
                     <TableCell>{siswa.nama_lengkap}</TableCell>
-                    <TableCell>
-                      {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
-                    </TableCell>
-                    <TableCell>{formatRupiah(getNominalSpp(siswa))}</TableCell>
                     <TableCell>
                       {formatRupiah(getTunggakanSpp(siswa))}
                     </TableCell>
