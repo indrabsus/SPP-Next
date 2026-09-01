@@ -25,6 +25,7 @@ import {
   getAllowedTingkat,
   getUser,
   isAdminKeuangan,
+  isYayasan,
   logout,
   UserLogin,
 } from "@/lib/auth"
@@ -66,7 +67,7 @@ const allMenus = [
     title: "Laporan Keuangan",
     href: "/dashboard/keuangan",
     icon: FileText,
-    adminOnly: true,
+    adminOrYayasan: true,
   },
   {
     title: "Master SPP",
@@ -93,6 +94,15 @@ const allMenus = [
     icon: KeyRound,
   },
 ]
+
+const yayasanAllowedPaths = new Set([
+  "/dashboard",
+  "/dashboard/pembayaran",
+  "/dashboard/log-spp",
+  "/dashboard/log-ppdb",
+  "/dashboard/keuangan",
+  "/dashboard/ubah-password",
+])
 
 export default function DashboardLayout({
   children,
@@ -128,6 +138,12 @@ export default function DashboardLayout({
   }, [user])
 
   useEffect(() => {
+    if (user && isYayasan(user) && !yayasanAllowedPaths.has(pathname)) {
+      router.replace("/dashboard")
+    }
+  }, [pathname, router, user])
+
+  useEffect(() => {
     if (!user) return
 
     const cekStatusWa = () => {
@@ -149,6 +165,10 @@ export default function DashboardLayout({
   const menus = allMenus.filter((menu) => {
     if (menu.adminOnly) {
       return isAdminKeuangan(user)
+    }
+
+    if (menu.adminOrYayasan) {
+      return isAdminKeuangan(user) || isYayasan(user)
     }
 
     return true
@@ -174,7 +194,7 @@ export default function DashboardLayout({
 
       <aside
         className={`
-          dark fixed inset-y-0 left-0 z-50 border-r border-slate-800 text-foreground transition-all duration-300
+          dark fixed inset-y-0 left-0 z-50 overflow-x-hidden overflow-y-auto overscroll-contain border-r border-slate-800 text-foreground transition-all duration-300
           bg-slate-950
           w-72 ${sidebarWidth}
           ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
@@ -247,7 +267,11 @@ export default function DashboardLayout({
 
                 <div className="flex flex-wrap gap-2 mt-2">
                   <Badge>
-                    {isAdminKeuangan(user) ? "Admin Keuangan" : "Staf Keuangan"}
+                    {isAdminKeuangan(user)
+                      ? "Admin Keuangan"
+                      : isYayasan(user)
+                        ? "Yayasan"
+                        : "Staf Keuangan"}
                   </Badge>
                   <Badge variant="outline">
                     Kelas{" "}
@@ -261,7 +285,7 @@ export default function DashboardLayout({
           </div>
         </div>
 
-        <nav className="px-3 space-y-1 pb-24">
+        <nav className="px-3 space-y-1 pb-4">
           {menus.map((menu) => {
             const Icon = menu.icon
             const active =
@@ -313,23 +337,6 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-3">
-          <Button
-            variant="destructive"
-            className={`w-full ${collapsed ? "md:px-0" : ""}`}
-            onClick={handleLogout}
-            title={collapsed ? "Logout" : undefined}
-          >
-            <LogOut className="w-4 h-4" />
-            <span
-              className={`ml-2 transition-all ${
-                collapsed ? "md:hidden" : "inline"
-              }`}
-            >
-              Logout
-            </span>
-          </Button>
-        </div>
       </aside>
 
       <section className={`transition-all duration-300 ${contentPadding}`}>
@@ -392,7 +399,9 @@ export default function DashboardLayout({
                     <p className="text-xs text-muted-foreground">
                       {isAdminKeuangan(user)
                         ? "Admin Keuangan"
-                        : "Staf Keuangan"}
+                        : isYayasan(user)
+                          ? "Yayasan"
+                          : "Staf Keuangan"}
                     </p>
                   </div>
                 </DropdownMenuLabel>

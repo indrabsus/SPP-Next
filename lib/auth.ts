@@ -51,17 +51,34 @@ export const getUsernameRole = (user: UserLogin | null) => {
 }
 
 export const isAllowedKeuanganUser = (user: UserLogin | null) => {
-  return allowedUsernames.includes(getUsernameRole(user))
+  return allowedUsernames.includes(getUsernameRole(user)) || isYayasan(user)
 }
 
 export const isAdminKeuangan = (user: UserLogin | null) => {
   return getUsernameRole(user) === "adminkeuangan"
 }
 
+export const isYayasan = (user: UserLogin | null) => {
+  const normalizeRole = (value?: string) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .trim()
+
+  return (
+    normalizeRole(user?.role) === "yayasan" ||
+    normalizeRole(user?.nama_role) === "yayasan"
+  )
+}
+
+export const canAccessAllKeuanganData = (user: UserLogin | null) => {
+  return isAdminKeuangan(user) || isYayasan(user)
+}
+
 export const getAllowedTingkat = (user: UserLogin | null) => {
   const username = getUsernameRole(user)
 
-  if (username === "adminkeuangan") return ["10", "11", "12"]
+  if (canAccessAllKeuanganData(user)) return ["10", "11", "12"]
   if (username === "stafkeuangan10") return ["10"]
   if (username === "stafkeuangan11") return ["11"]
   if (username === "stafkeuangan12") return ["12"]

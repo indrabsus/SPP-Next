@@ -18,9 +18,9 @@ import {
 import { apiFetch } from "@/lib/api"
 import {
   canDeleteLogSpp,
+  canAccessAllKeuanganData,
   getAllowedTingkat,
   getUser,
-  isAdminKeuangan,
   UserLogin,
 } from "@/lib/auth"
 
@@ -260,7 +260,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
 
     setUser(currentUser)
 
-    if (isAdminKeuangan(currentUser)) {
+    if (canAccessAllKeuanganData(currentUser)) {
       setTingkat("semua")
     } else {
       setTingkat(allowed[0] || "semua")
@@ -309,7 +309,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
         params.set("end_date", filterEndDate)
       }
 
-      if (isAdminKeuangan(user)) {
+      if (canAccessAllKeuanganData(user)) {
         if (tingkat !== "semua") {
           params.set("tingkat", tingkat)
         }
@@ -440,7 +440,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
       // tingkat yang lagi difilter di layar), staf keuangan selalu
       // dikunci ke tingkat yang jadi tanggung jawabnya - tanpa ini laporan
       // cetak bisa bocor menampilkan tingkat lain di luar akses staf.
-      if (isAdminKeuangan(user)) {
+      if (canAccessAllKeuanganData(user)) {
         if (tingkat !== "semua") {
           params.set("tingkat", tingkat)
         }
@@ -955,17 +955,17 @@ const openModalBukti = (bukti: string | null | undefined) => {
               <Select
                 value={tingkat}
                 onValueChange={setTingkat}
-                disabled={!isAdminKeuangan(user)}
+                disabled={!canAccessAllKeuanganData(user)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih tingkat" />
                 </SelectTrigger>
                 <SelectContent>
-                  {isAdminKeuangan(user) && (
+                  {canAccessAllKeuanganData(user) && (
                     <SelectItem value="semua">Semua Tingkat</SelectItem>
                   )}
 
-                  {isAdminKeuangan(user)
+                  {canAccessAllKeuanganData(user)
                     ? ["10", "11", "12"].map((item) => (
                         <SelectItem key={item} value={item}>
                           Kelas {item}

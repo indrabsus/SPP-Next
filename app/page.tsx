@@ -40,11 +40,7 @@ export default function LoginPage() {
         }),
       })
 
-      const loginUser = {
-        ...res.data,
-        role: res.data.username,
-        nama_role: res.data.username,
-      }
+      const loginUser = res.data
 
       if (!isAllowedKeuanganUser(loginUser)) {
         alert("Akun ini tidak memiliki akses ke aplikasi keuangan.")

@@ -28,9 +28,10 @@ import {
 
 import { apiFetch, waFetch } from "@/lib/api"
 import {
+  canAccessAllKeuanganData,
   getAllowedTingkat,
   getUser,
-  isAdminKeuangan,
+  isYayasan,
   UserLogin,
 } from "@/lib/auth"
 
@@ -426,6 +427,7 @@ export default function PembayaranPage() {
   }, [])
 
   const allowedTingkat = user ? getAllowedTingkat(user) : []
+  const isReadOnly = isYayasan(user)
 
   const resetExtraTagihanByTingkat = (tingkatValue: string) => {
     if (tingkatValue === "10") {
@@ -1450,7 +1452,7 @@ export default function PembayaranPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {isAdminKeuangan(user) && (
+            {canAccessAllKeuanganData(user) && (
               <div>
                 <Label>Tingkat</Label>
                 <Select value={tingkat} onValueChange={setTingkat}>
@@ -1578,15 +1580,17 @@ export default function PembayaranPage() {
               {sortedSiswa.length} siswa
             </Badge>
 
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!tingkat || !tahunAjaran}
-              onClick={bukaTambahMurid}
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Tambah Murid Baru
-            </Button>
+            {!isReadOnly && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!tingkat || !tahunAjaran}
+                onClick={bukaTambahMurid}
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Tambah Murid Baru
+              </Button>
+            )}
 
             <Button
               size="sm"
@@ -1603,15 +1607,17 @@ export default function PembayaranPage() {
               Cetak PDF
             </Button>
 
-            <Button
-              size="sm"
-              disabled={selectedIds.size === 0}
-              onClick={bukaKirimWa}
-              className="bg-green-600 text-white hover:bg-green-700"
-            >
-              <WhatsAppIcon className="w-4 h-4 mr-2" />
-              Kirim WA ({selectedIds.size})
-            </Button>
+            {!isReadOnly && (
+              <Button
+                size="sm"
+                disabled={selectedIds.size === 0}
+                onClick={bukaKirimWa}
+                className="bg-green-600 text-white hover:bg-green-700"
+              >
+                <WhatsAppIcon className="w-4 h-4 mr-2" />
+                Kirim WA ({selectedIds.size})
+              </Button>
+            )}
           </div>
         </CardHeader>
 
@@ -1619,12 +1625,14 @@ export default function PembayaranPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={semuaTerpilihDiHalaman}
-                    onCheckedChange={toggleSelectSemuaDiHalaman}
-                  />
-                </TableHead>
+                {!isReadOnly && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={semuaTerpilihDiHalaman}
+                      onCheckedChange={toggleSelectSemuaDiHalaman}
+                    />
+                  </TableHead>
+                )}
 
                 <TableHead>
                   <button
@@ -1696,7 +1704,7 @@ export default function PembayaranPage() {
                   </button>
                 </TableHead>
 
-                <TableHead className="text-right">Aksi</TableHead>
+                {!isReadOnly && <TableHead className="text-right">Aksi</TableHead>}
               </TableRow>
             </TableHeader>
 
@@ -1725,20 +1733,24 @@ export default function PembayaranPage() {
               ) : (
                 paginatedSiswa.map((siswa) => (
                   <TableRow key={siswa.id_siswa}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedIds.has(siswa.id_siswa)}
-                        onCheckedChange={() => toggleSelectSiswa(siswa.id_siswa)}
-                      />
-                    </TableCell>
+                    {!isReadOnly && (
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(siswa.id_siswa)}
+                          onCheckedChange={() => toggleSelectSiswa(siswa.id_siswa)}
+                        />
+                      </TableCell>
+                    )}
 
                     <TableCell className="font-medium">
                       {siswa.nama_lengkap}
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-normal">
                         <button
                           type="button"
-                          onClick={() => bukaEditNoHp(siswa, "no_hp")}
-                          className="inline-flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-primary"
+                          onClick={() => !isReadOnly && bukaEditNoHp(siswa, "no_hp")}
+                          className={`inline-flex items-center gap-1 text-muted-foreground ${
+                            isReadOnly ? "cursor-default" : "cursor-pointer hover:text-primary"
+                          }`}
                         >
                           {isNoHpValid(siswa.no_hp) ? (
                             <CheckCircle2
@@ -1760,8 +1772,12 @@ export default function PembayaranPage() {
 
                         <button
                           type="button"
-                          onClick={() => bukaEditNoHp(siswa, "no_hp_ortu")}
-                          className="inline-flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-primary"
+                          onClick={() =>
+                            !isReadOnly && bukaEditNoHp(siswa, "no_hp_ortu")
+                          }
+                          className={`inline-flex items-center gap-1 text-muted-foreground ${
+                            isReadOnly ? "cursor-default" : "cursor-pointer hover:text-primary"
+                          }`}
                         >
                           {isNoHpValid(siswa.no_hp_ortu) ? (
                             <CheckCircle2
@@ -1789,8 +1805,12 @@ export default function PembayaranPage() {
                     <TableCell>
                       <button
                         type="button"
-                        onClick={() => bukaPindahKelas(siswa)}
-                        className="cursor-pointer hover:text-primary hover:underline"
+                        onClick={() => !isReadOnly && bukaPindahKelas(siswa)}
+                        className={
+                          isReadOnly
+                            ? "cursor-default"
+                            : "cursor-pointer hover:text-primary hover:underline"
+                        }
                       >
                         {getTingkatSiswa(siswa)} {getNamaKelas(siswa)}
                       </button>
@@ -1829,8 +1849,9 @@ export default function PembayaranPage() {
                       {formatRupiah(getTotalTunggakan(siswa))}
                     </TableCell>
 
-                    <TableCell className="text-right">
-                      <div className="flex flex-wrap justify-end gap-2">
+                    {!isReadOnly && (
+                      <TableCell className="text-right">
+                        <div className="flex flex-wrap justify-end gap-2">
                         <Button
                           size="sm"
                           variant="outline"
@@ -1857,8 +1878,9 @@ export default function PembayaranPage() {
                             Bayar PPDB
                           </Button>
                         )}
-                      </div>
-                    </TableCell>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}

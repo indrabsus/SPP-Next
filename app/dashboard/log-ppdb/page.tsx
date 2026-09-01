@@ -108,6 +108,24 @@ const formatRupiah = (value: string | number) => {
   return `Rp ${angka.toLocaleString("id-ID")}`
 }
 
+const formatRupiahSingkat = (value: string | number) => {
+  const angka = Number(String(value || 0).replace(/[^\d]/g, "")) || 0
+
+  if (angka >= 1_000_000) {
+    return `Rp ${(angka / 1_000_000).toLocaleString("id-ID", {
+      maximumFractionDigits: 1,
+    })} jt`
+  }
+
+  if (angka >= 1_000) {
+    return `Rp ${(angka / 1_000).toLocaleString("id-ID", {
+      maximumFractionDigits: 1,
+    })} rb`
+  }
+
+  return formatRupiah(angka)
+}
+
 const formatTanggal = (value: string) => {
   if (!value) return "-"
 
@@ -136,6 +154,8 @@ export default function LogPpdbPage() {
   const [jenis, setJenis] = useState("semua")
   const [tahunAjaran, setTahunAjaran] = useState("")
   const [daftarTahunAjaran, setDaftarTahunAjaran] = useState<string[]>([])
+  const [filterStartDate, setFilterStartDate] = useState("")
+  const [filterEndDate, setFilterEndDate] = useState("")
 
   const [page, setPage] = useState(1)
   const [limit] = useState(50)
@@ -214,12 +234,30 @@ const openModalBukti = (bukti: string | null | undefined) => {
         params.set("jenis", jenis)
       }
 
+      if (filterStartDate) {
+        params.set("start_date", filterStartDate)
+      }
+
+      if (filterEndDate) {
+        params.set("end_date", filterEndDate)
+      }
+
       const res = await apiFetch(`/spp/logppdb?${params.toString()}`)
 
       let result: LogPpdb[] = res?.data || []
 
       if (metode !== "semua") {
         result = result.filter((item) => item.bayar === metode)
+      }
+
+      if (filterStartDate || filterEndDate) {
+        result = result.filter((item) => {
+          const tanggal = item.created_at.slice(0, 10)
+          return (
+            (!filterStartDate || tanggal >= filterStartDate) &&
+            (!filterEndDate || tanggal <= filterEndDate)
+          )
+        })
       }
 
       setData(result)
@@ -241,7 +279,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
       getLogPpdb(1)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tahun, metode, jenis, tahunAjaran])
+  }, [user, tahun, metode, jenis, tahunAjaran, filterStartDate, filterEndDate])
 
   const handleCari = () => {
     getLogPpdb(1)
@@ -314,6 +352,50 @@ const openModalBukti = (bukti: string | null | undefined) => {
       totalDibebaskan,
     }
   }, [data])
+
+  const cetakDaftar = () => {
+    if (sortedData.length === 0) {
+      alert("Tidak ada data untuk dicetak")
+      return
+    }
+
+    const rows = sortedData
+      .map((item, index) => {
+        const kelas = item.siswa_ppdb?.kelas_terkini
+        return `<tr>
+          <td>${(page - 1) * limit + index + 1}</td>
+          <td>${item.siswa_ppdb?.nama_lengkap || "-"}</td>
+          <td>${kelas?.tingkat || "-"} ${kelas?.nama_kelas || "-"}</td>
+          <td>${item.no_invoice || "-"}</td>
+          <td>${formatRupiah(item.nominal)}</td>
+          <td>${jenisLabel[item.jenis] || item.jenis}</td>
+          <td>${item.bayar ? bayarLabel[item.bayar] || item.bayar : "-"}</td>
+          <td>${formatTanggal(item.created_at)}</td>
+        </tr>`
+      })
+      .join("")
+
+    const printWindow = window.open("", "_blank", "noopener,noreferrer")
+    if (!printWindow) return
+
+    printWindow.document.write(`<!doctype html>
+      <html><head><title>Log Pembayaran PPDB</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+        h1 { font-size: 18px; margin: 0 0 4px; }
+        p { margin: 0 0 16px; font-size: 12px; color: #4b5563; }
+        table { border-collapse: collapse; width: 100%; font-size: 11px; }
+        th, td { border: 1px solid #d1d5db; padding: 6px; text-align: left; }
+        th { background: #f3f4f6; }
+      </style></head><body>
+      <h1>Log Pembayaran PPDB</h1>
+      <p>Rentang tanggal: ${filterStartDate || "Awal"} s.d. ${filterEndDate || "Sekarang"}</p>
+      <table><thead><tr><th>No</th><th>Nama Siswa</th><th>Kelas</th><th>No. Invoice</th><th>Nominal</th><th>Jenis</th><th>Bayar</th><th>Waktu</th></tr></thead>
+      <tbody>${rows}</tbody></table></body></html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
 
   const printKuitansi = (item: LogPpdb) => {
     const namaSiswa = item.siswa_ppdb?.nama_lengkap || "-"
@@ -594,8 +676,11 @@ const openModalBukti = (bukti: string | null | undefined) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-emerald-600">
-              {formatRupiah(summary.totalCashTransfer)}
+            <p
+              className="text-2xl font-bold text-emerald-600"
+              title={formatRupiah(summary.totalCashTransfer)}
+            >
+              {formatRupiahSingkat(summary.totalCashTransfer)}
             </p>
           </CardContent>
         </Card>
@@ -607,8 +692,11 @@ const openModalBukti = (bukti: string | null | undefined) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-amber-600">
-              {formatRupiah(summary.totalDibebaskan)}
+            <p
+              className="text-2xl font-bold text-amber-600"
+              title={formatRupiah(summary.totalDibebaskan)}
+            >
+              {formatRupiahSingkat(summary.totalDibebaskan)}
             </p>
           </CardContent>
         </Card>
@@ -641,7 +729,7 @@ const openModalBukti = (bukti: string | null | undefined) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div>
               <Label>Tahun Siswa</Label>
               <Select value={tahun} onValueChange={setTahun}>
@@ -708,6 +796,24 @@ const openModalBukti = (bukti: string | null | undefined) => {
               </Select>
             </div>
 
+            <div>
+              <Label>Dari Tanggal</Label>
+              <Input
+                type="date"
+                value={filterStartDate}
+                onChange={(e) => setFilterStartDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Sampai Tanggal</Label>
+              <Input
+                type="date"
+                value={filterEndDate}
+                onChange={(e) => setFilterEndDate(e.target.value)}
+              />
+            </div>
+
             <div className="flex items-end">
               <Button className="w-full" onClick={() => getLogPpdb(1)}>
                 Tampilkan
@@ -718,11 +824,17 @@ const openModalBukti = (bukti: string | null | undefined) => {
       </Card>
 
       <Card className="dashboard-card">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle>Data Log PPDB</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Total: {total} transaksi
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              Total: {total} transaksi
+            </p>
+            <Button size="sm" variant="outline" onClick={cetakDaftar}>
+              <Printer className="w-4 h-4 mr-2" />
+              Cetak
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent>
