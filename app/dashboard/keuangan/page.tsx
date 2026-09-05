@@ -84,23 +84,6 @@ const today = new Date().toISOString().slice(0, 10)
 const formatRupiah = (value: number) =>
   `Rp ${Number(value || 0).toLocaleString("id-ID")}`
 
-const formatRupiahSingkat = (value: number) => {
-  const nominal = Number(value || 0)
-
-  if (Math.abs(nominal) >= 1_000_000) {
-    return `Rp ${(nominal / 1_000_000).toLocaleString("id-ID", {
-      maximumFractionDigits: 1,
-    })} jt`
-  }
-
-  if (Math.abs(nominal) >= 1_000) {
-    return `Rp ${(nominal / 1_000).toLocaleString("id-ID", {
-      maximumFractionDigits: 1,
-    })} rb`
-  }
-
-  return formatRupiah(nominal)
-}
 
 const toNumber = (value: any) => {
   if (!value) return 0
@@ -582,16 +565,8 @@ export default function LaporanKeuanganPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p
-                className="text-2xl font-bold print-value"
-                title={formatRupiah(summary.totalSpp)}
-              >
-                <span className="print:hidden">
-                  {formatRupiahSingkat(summary.totalSpp)}
-                </span>
-                <span className="hidden print:inline">
-                  {formatRupiah(summary.totalSpp)}
-                </span>
+              <p className="text-2xl font-bold print-value">
+                {formatRupiah(summary.totalSpp)}
               </p>
             </CardContent>
           </Card>
@@ -603,16 +578,8 @@ export default function LaporanKeuanganPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p
-                className="text-2xl font-bold text-amber-600 print-value"
-                title={formatRupiah(summary.totalDibebaskan)}
-              >
-                <span className="print:hidden">
-                  {formatRupiahSingkat(summary.totalDibebaskan)}
-                </span>
-                <span className="hidden print:inline">
-                  {formatRupiah(summary.totalDibebaskan)}
-                </span>
+              <p className="text-2xl font-bold text-amber-600 print-value">
+                {formatRupiah(summary.totalDibebaskan)}
               </p>
             </CardContent>
           </Card>
@@ -624,16 +591,8 @@ export default function LaporanKeuanganPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p
-                className="text-2xl font-bold print-value"
-                title={formatRupiah(summary.totalPpdb)}
-              >
-                <span className="print:hidden">
-                  {formatRupiahSingkat(summary.totalPpdb)}
-                </span>
-                <span className="hidden print:inline">
-                  {formatRupiah(summary.totalPpdb)}
-                </span>
+              <p className="text-2xl font-bold print-value">
+                {formatRupiah(summary.totalPpdb)}
               </p>
             </CardContent>
           </Card>
@@ -751,16 +710,8 @@ export default function LaporanKeuanganPage() {
               <CardTitle>Total Uang Masuk</CardTitle>
             </CardHeader>
             <CardContent>
-              <p
-                className="text-3xl font-bold"
-                title={formatRupiah(summary.total)}
-              >
-                <span className="print:hidden">
-                  {formatRupiahSingkat(summary.total)}
-                </span>
-                <span className="hidden print:inline">
-                  {formatRupiah(summary.total)}
-                </span>
+              <p className="text-3xl font-bold">
+                {formatRupiah(summary.total)}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 Total ini tidak termasuk nominal yang dibebaskan.

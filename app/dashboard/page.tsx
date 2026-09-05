@@ -153,23 +153,6 @@ const formatRupiah = (value: number) => {
   return `Rp ${Number(value || 0).toLocaleString("id-ID")}`
 }
 
-const formatRupiahSingkat = (value: number) => {
-  const nominal = Number(value || 0)
-
-  if (Math.abs(nominal) >= 1_000_000) {
-    return `Rp ${(nominal / 1_000_000).toLocaleString("id-ID", {
-      maximumFractionDigits: 1,
-    })} jt`
-  }
-
-  if (Math.abs(nominal) >= 1_000) {
-    return `Rp ${(nominal / 1_000).toLocaleString("id-ID", {
-      maximumFractionDigits: 1,
-    })} rb`
-  }
-
-  return formatRupiah(nominal)
-}
 
 const formatDateOnly = (date: Date) => {
   return date.toISOString().slice(0, 10)
@@ -509,11 +492,8 @@ export default function DashboardPage() {
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <div>
-                  <p
-                    className="text-2xl font-bold tracking-tight"
-                    title={formatRupiah(stats.dibebaskanBulanIni)}
-                  >
-                    {formatRupiahSingkat(stats.dibebaskanBulanIni)}
+                  <p className="text-2xl font-bold tracking-tight">
+                    {formatRupiah(stats.dibebaskanBulanIni)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Tidak masuk uang kas
@@ -533,11 +513,8 @@ export default function DashboardPage() {
                   <CreditCard className="w-6 h-6" />
                 </div>
                 <div>
-                  <p
-                    className="text-2xl font-bold tracking-tight"
-                    title={formatRupiah(stats.pembayaranHariIni)}
-                  >
-                    {formatRupiahSingkat(stats.pembayaranHariIni)}
+                  <p className="text-2xl font-bold tracking-tight">
+                    {formatRupiah(stats.pembayaranHariIni)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Cash + transfer
@@ -557,11 +534,8 @@ export default function DashboardPage() {
                   <Wallet className="w-6 h-6" />
                 </div>
                 <div>
-                  <p
-                    className="text-2xl font-bold tracking-tight"
-                    title={formatRupiah(stats.pembayaranBulanIni)}
-                  >
-                    {formatRupiahSingkat(stats.pembayaranBulanIni)}
+                  <p className="text-2xl font-bold tracking-tight">
+                    {formatRupiah(stats.pembayaranBulanIni)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Cash + transfer

@@ -108,23 +108,6 @@ const formatRupiah = (value: string | number) => {
   return `Rp ${angka.toLocaleString("id-ID")}`
 }
 
-const formatRupiahSingkat = (value: string | number) => {
-  const angka = Number(String(value || 0).replace(/[^\d]/g, "")) || 0
-
-  if (angka >= 1_000_000) {
-    return `Rp ${(angka / 1_000_000).toLocaleString("id-ID", {
-      maximumFractionDigits: 1,
-    })} jt`
-  }
-
-  if (angka >= 1_000) {
-    return `Rp ${(angka / 1_000).toLocaleString("id-ID", {
-      maximumFractionDigits: 1,
-    })} rb`
-  }
-
-  return formatRupiah(angka)
-}
 
 const formatTanggal = (value: string) => {
   if (!value) return "-"
@@ -676,11 +659,8 @@ const openModalBukti = (bukti: string | null | undefined) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p
-              className="text-2xl font-bold text-emerald-600"
-              title={formatRupiah(summary.totalCashTransfer)}
-            >
-              {formatRupiahSingkat(summary.totalCashTransfer)}
+            <p className="text-2xl font-bold text-emerald-600">
+              {formatRupiah(summary.totalCashTransfer)}
             </p>
           </CardContent>
         </Card>
@@ -692,11 +672,8 @@ const openModalBukti = (bukti: string | null | undefined) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p
-              className="text-2xl font-bold text-amber-600"
-              title={formatRupiah(summary.totalDibebaskan)}
-            >
-              {formatRupiahSingkat(summary.totalDibebaskan)}
+            <p className="text-2xl font-bold text-amber-600">
+              {formatRupiah(summary.totalDibebaskan)}
             </p>
           </CardContent>
         </Card>
